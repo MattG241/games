@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0d13" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>RetroPlay</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- ============ LIBRARY / HOME ============ -->
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">▶</span>
+        <span class="brand-name">Retro<span class="accent">Play</span></span>
+      </div>
+      <div class="topbar-actions">
+        <button id="btn-settings" class="icon-btn" aria-label="Settings" title="Settings">⚙</button>
+        <button id="btn-add" class="primary-btn" aria-label="Add game">+ Add Game</button>
+      </div>
+    </header>
+
+    <nav class="console-filter" id="console-filter">
+      <button class="chip active" data-console="all">All</button>
+      <button class="chip" data-console="nes">NES</button>
+      <button class="chip" data-console="snes">SNES</button>
+      <button class="chip" data-console="gb">Game Boy</button>
+      <button class="chip" data-console="gba">GBA</button>
+      <button class="chip" data-console="segaMD">Genesis</button>
+    </nav>
+
+    <main id="library" class="library">
+      <!-- ROM cards injected here -->
+    </main>
+
+    <!-- Empty state -->
+    <div id="empty-state" class="empty-state hidden">
+      <div class="empty-art">🎮</div>
+      <h2>Your library is empty</h2>
+      <p>Add a ROM file you legally own to get started.<br />NES, SNES, Game Boy, GBA and Genesis are supported.</p>
+      <button id="empty-add" class="primary-btn big">+ Add your first game</button>
+      <p class="legal-note">Only load ROM files of games you legally own. RetroPlay ships no game data.</p>
+    </div>
+  </div>
+
+  <!-- ============ PLAYER ============ -->
+  <div id="player" class="player hidden">
+    <div class="player-topbar" id="player-topbar">
+      <button id="btn-back" class="icon-btn ghost" title="Back to library">‹ Library</button>
+      <span id="now-playing" class="now-playing"></span>
+      <div class="player-topbar-actions">
+        <button id="btn-crt" class="icon-btn ghost" title="Toggle CRT overlay">CRT</button>
+        <button id="btn-fs" class="icon-btn ghost" title="Fullscreen">⛶</button>
+      </div>
+    </div>
+    <div class="stage">
+      <iframe id="emu-frame" title="Emulator" allow="autoplay; gamepad; fullscreen" allowfullscreen></iframe>
+      <div id="crt-overlay" class="crt-overlay hidden"></div>
+    </div>
+  </div>
+
+  <!-- ============ ADD-GAME MODAL (console picker for ambiguous files) ============ -->
+  <div id="picker-modal" class="modal hidden">
+    <div class="modal-card">
+      <h3>Which console?</h3>
+      <p id="picker-filename" class="muted"></p>
+      <p class="muted">We couldn't detect the system from the file. Pick one:</p>
+      <div class="picker-grid">
+        <button class="picker-opt" data-console="nes">NES</button>
+        <button class="picker-opt" data-console="snes">SNES</button>
+        <button class="picker-opt" data-console="gb">Game Boy / Color</button>
+        <button class="picker-opt" data-console="gba">Game Boy Advance</button>
+        <button class="picker-opt" data-console="segaMD">Genesis / Mega Drive</button>
+      </div>
+      <button id="picker-cancel" class="ghost-btn">Cancel</button>
+    </div>
+  </div>
+
+  <!-- ============ SETTINGS MODAL ============ -->
+  <div id="settings-modal" class="modal hidden">
+    <div class="modal-card">
+      <h3>Settings</h3>
+
+      <label class="setting-row">
+        <span>Default shader</span>
+        <select id="setting-shader">
+          <option value="disabled">None (sharp pixels)</option>
+          <option value="crt-easymode.glslp">CRT — Easymode</option>
+          <option value="crt-aperture.glslp">CRT — Aperture</option>
+          <option value="crt-geom.glslp">CRT — Geom (curved)</option>
+          <option value="crt-mattias.glslp">CRT — Mattias</option>
+          <option value="scanlines.glslp">Scanlines</option>
+          <option value="sabr.glslp">SABR (smooth)</option>
+        </select>
+      </label>
+
+      <label class="setting-row">
+        <span>CRT overlay by default</span>
+        <input type="checkbox" id="setting-crt-overlay" />
+      </label>
+
+      <label class="setting-row">
+        <span>Auto-pause when backgrounded</span>
+        <input type="checkbox" id="setting-autopause" checked />
+      </label>
+
+      <label class="setting-row">
+        <span>Smooth (bilinear) scaling</span>
+        <input type="checkbox" id="setting-smoothing" />
+      </label>
+
+      <div class="setting-row column">
+        <span>Emulator core source</span>
+        <input type="text" id="setting-cdn" spellcheck="false" />
+        <small class="muted">Where WASM cores are loaded from. Leave default unless self-hosting.</small>
+      </div>
+
+      <div class="settings-actions">
+        <button id="settings-close" class="primary-btn">Done</button>
+      </div>
+      <p class="legal-note">RetroPlay is an emulator front-end. It contains no copyrighted games. Load only ROMs you legally own.</p>
+    </div>
+  </div>
+
+  <!-- Hidden file input -->
+  <input type="file" id="file-input" accept=".nes,.smc,.sfc,.fig,.gb,.gbc,.gba,.md,.gen,.smd,.bin,.68k,.sms,.gg,.zip,.7z" multiple hidden />
+
+  <!-- Toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
