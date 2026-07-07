@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>RetroPlay Emulator</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+    #game { width: 100vw; height: 100vh; }
+    #boot {
+      position: fixed; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px;
+      color: #e8ecf5; font-family: system-ui, sans-serif; background: #000; z-index: 5;
+    }
+    #boot .spin {
+      width: 44px; height: 44px; border-radius: 50%;
+      border: 3px solid rgba(255,255,255,.15); border-top-color: #7c5cff;
+      animation: s 1s linear infinite;
+    }
+    #boot small { color: #8b93a7; font-size: 13px; max-width: 80vw; text-align: center; }
+    @keyframes s { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="boot">
+    <div class="spin"></div>
+    <div id="boot-label">Loading core…</div>
+    <small id="boot-hint"></small>
+  </div>
+  <div id="game"></div>
+
+  <script>
+  (function () {
+    const q = new URLSearchParams(location.search);
+    const core   = q.get('core')   || 'nes';
+    const romUrl = q.get('rom');
+    const name   = q.get('name')   || 'Game';
+    const gameId = q.get('id')     || 'default';
+    const shader = q.get('shader') || 'disabled';
+    const smoothing = q.get('smoothing') === '1';
+    const cdn    = q.get('cdn')    || 'https://cdn.emulatorjs.org/stable/data/';
+
+    function toParent(msg) {
+      try { parent.postMessage(Object.assign({ __retroplay_frame: true }, msg), '*'); } catch (e) {}
+    }
+
+    if (!romUrl) {
+      document.getElementById('boot-label').textContent = 'No ROM supplied.';
+      toParent({ type: 'error', message: 'No ROM supplied.' });
+      return;
+    }
+
+    // ---- EmulatorJS configuration ----
+    window.EJS_player = '#game';
+    window.EJS_core = core;                    // nes | snes | gb | gba | segaMD
+    window.EJS_gameUrl = romUrl;               // blob: URL from the parent
+    window.EJS_gameName = name;
+    window.EJS_gameID = gameId;                // stable id => save states persist
+    window.EJS_pathtodata = cdn;
+    window.EJS_startOnLoaded = true;
+    window.EJS_color = '#7c5cff';
+    window.EJS_backgroundColor = '#000000';
+    window.EJS_alignStartButton = 'center';
+    window.EJS_defaultOptions = {
+      shader: shader,
+      'save-state-location': 'browser',        // persist states in the browser
+    };
+
+    // Called by EmulatorJS once the emulator instance exists.
+    window.EJS_ready = function () {
+      const boot = document.getElementById('boot');
+      if (boot) boot.style.display = 'none';
+      try {
+        if (window.EJS_emulator && window.EJS_emulator.Module && window.EJS_emulator.Module.canvas) {
+          window.EJS_emulator.Module.canvas.style.imageRendering = smoothing ? 'auto' : 'pixelated';
+        }
+      } catch (e) {}
+      toParent({ type: 'ready' });
+    };
+
+    window.EJS_onGameStart = function () { toParent({ type: 'started' }); };
+
+    // ---- Commands from the RetroPlay shell (parent window) ----
+    window.addEventListener('message', function (e) {
+      const d = e.data || {};
+      if (!d.__retroplay) return;
+      const emu = window.EJS_emulator;
+      if (!emu) return;
+      try {
+        switch (d.action) {
+          case 'pause':  if (emu.pause)  emu.pause();  else if (emu.gameManager) emu.gameManager.functions?.setEmuVolume?.(0); break;
+          case 'resume': if (emu.play)   emu.play();   break;
+          case 'restart':if (emu.gameManager && emu.gameManager.restart) emu.gameManager.restart(); break;
+          case 'saveState':
+            if (emu.gameManager && emu.gameManager.saveState) emu.gameManager.saveState();
+            break;
+          case 'loadState':
+            if (emu.gameManager && emu.gameManager.loadState) emu.gameManager.loadState();
+            break;
+        }
+      } catch (err) { toParent({ type: 'error', message: String(err) }); }
+    });
+
+    // ---- Robust CDN loader with a mirror fallback ----
+    const MIRRORS = [
+      cdn,
+      'https://cdn.emulatorjs.org/stable/data/',
+      'https://cdn.jsdelivr.net/npm/emulatorjs@latest/data/',
+    ];
+    let idx = 0;
+    function loadLoader() {
+      const base = MIRRORS[idx];
+      window.EJS_pathtodata = base;
+      document.getElementById('boot-hint').textContent = 'Source: ' + base;
+      const s = document.createElement('script');
+      s.src = base + 'loader.js';
+      s.onerror = function () {
+        idx++;
+        if (idx < MIRRORS.length) {
+          document.getElementById('boot-label').textContent = 'Trying backup source…';
+          loadLoader();
+        } else {
+          document.getElementById('boot-label').textContent = 'Could not load emulator core. Check your connection.';
+          toParent({ type: 'error', message: 'Failed to load emulator core from all sources.' });
+        }
+      };
+      document.body.appendChild(s);
+    }
+    loadLoader();
+  })();
+  </script>
+</body>
+</html>
