@@ -118,6 +118,11 @@ gta6/
 
 ---
 
+### Menu icons
+The home/settings menus use optional icon PNGs in `assets/icons/` — see
+[`assets/icons/README.md`](./assets/icons/README.md) for the exact filenames and style.
+Missing icons are skipped automatically, so the menus stay clean text-only until you add them.
+
 ### Front end
 - **Loading screens** — 8 hand-picked neon artworks (`assets/loading/*.webp`) rotate at random each
   load, with a **live** progress bar tied to real asset loading and rotating gameplay tips.
