@@ -227,7 +227,7 @@ import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 const LITE=new URLSearchParams(location.search).has('lite'); // tiny world for automated tests / weak GPUs
 const CFG = LITE
   ? { world:240, block:78, road:18, buildings:40, traffic:6, peds:8, coins:12, ramps:2, parkedCars:6, shadow:1024 }
-  : { world:620, block:78, road:18, buildings:260, traffic:12, peds:16, coins:32, ramps:6, parkedCars:16, shadow:1536 };
+  : { world:620, block:78, road:18, buildings:320, traffic:22, peds:18, coins:32, ramps:6, parkedCars:30, shadow:1536 };
 const MPH = 2.23694;
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
 const lerp=(a,b,t)=>a+(b-a)*t;
@@ -358,7 +358,7 @@ const Radio={
 //  RENDERER / SCENE
 // =========================================================================
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.5)); // cap: a 4K TV at DPR 2 renders 4x the pixels
 renderer.setSize(innerWidth,innerHeight);
 renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.outputColorSpace=THREE.SRGBColorSpace; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.15;
@@ -378,7 +378,7 @@ scene.add(new THREE.Mesh(new THREE.SphereGeometry(1800,32,16),skyMat));
 const hemi=new THREE.HemisphereLight(0xbfd8ff,0x8a7a66,1.0); scene.add(hemi);
 const sun=new THREE.DirectionalLight(0xfff2d8,2.2);
 sun.castShadow=true; sun.shadow.mapSize.set(CFG.shadow,CFG.shadow); sun.shadow.camera.near=10; sun.shadow.camera.far=900;
-const SS=280; Object.assign(sun.shadow.camera,{left:-SS,right:SS,top:SS,bottom:-SS}); sun.shadow.bias=-0.0004; sun.shadow.normalBias=0.02;
+const SS=150; Object.assign(sun.shadow.camera,{left:-SS,right:SS,top:SS,bottom:-SS}); sun.shadow.bias=-0.0004; sun.shadow.normalBias=0.02; sun.shadow.camera.far=600;
 scene.add(sun); scene.add(sun.target);
 const ambient=new THREE.AmbientLight(0x9aa8bb,0.5); scene.add(ambient);
 // moon + stars (shown at night/storm)
@@ -705,24 +705,38 @@ function signTexture(word,color){ const c=document.createElement('canvas'); c.wi
   g.fillText(word,128,36); const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t; }
 const litWinMat=new THREE.MeshBasicMaterial({color:0xffe4a0,transparent:true,opacity:0,depthWrite:false});
 let litWindows=null;
-function colliderHeight(b){ return clamp(Math.max(b.hw,b.hd)*3.2, 14, 90); }
+// cheap high-rise facades: a window-grid texture on a single box (12 tris) instead of hundreds of kit panels
+function facadeTex(base,win){ const c=document.createElement('canvas'); c.width=64; c.height=128; const g=c.getContext('2d');
+  g.fillStyle=base; g.fillRect(0,0,64,128);
+  for(let y=8;y<124;y+=15) for(let x=7;x<58;x+=14){ g.fillStyle=Math.random()<0.5?win:'#23262e'; g.fillRect(x,y,8,10); }
+  const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=2; return t; }
+const FACADES=[{base:'#6b6f7a',win:'#cfe6ff'},{base:'#7a5a48',win:'#ffd9a0'},{base:'#525c6a',win:'#bfe0ff'},{base:'#868c96',win:'#eef4ff'},{base:'#5a4a5e',win:'#ffcfe6'}]
+  .map(f=>new THREE.MeshStandardMaterial({map:facadeTex(f.base,f.win),roughness:0.82,metalness:0.05}));
+const BOX_GEO=new THREE.BoxGeometry(1,1,1);
+function colliderHeight(b){ return b.h ? b.h : clamp(Math.max(b.hw,b.hd)*3.2, 14, 90); }
+// pre-baked sign textures reused across all signs/billboards (avoids 100+ one-off canvas textures)
+let SIGN_TEX=null;
+function signPool(){ if(SIGN_TEX) return SIGN_TEX; SIGN_TEX=[];
+  for(let i=0;i<16;i++) SIGN_TEX.push(signTexture(pick(SIGN_WORDS),pick(NEON_COLORS)));
+  return SIGN_TEX; }
 function buildNeon(){
+  const pool=signPool();
   const winMats=[]; let signs=0, bills=0;
   for(const b of colliders){
     if(b.hw<4||b.hd<4) continue;               // only real buildings
     const faces=[[0,1,b.hd],[0,-1,b.hd],[1,0,b.hw],[-1,0,b.hw]];
     const h=colliderHeight(b);
-    if(signs<90 && Math.random()<0.6){ const [fx,fz,off]=pick(faces); const col=pick(NEON_COLORS); const w=Math.min(b.hw,b.hd)+2.5;
-      const sign=new THREE.Mesh(new THREE.PlaneGeometry(w,w*0.28), new THREE.MeshBasicMaterial({map:signTexture(pick(SIGN_WORDS),col),transparent:true}));
+    if(signs<44 && Math.random()<0.5){ const [fx,fz,off]=pick(faces); const w=Math.min(b.hw,b.hd)+2.5;
+      const sign=new THREE.Mesh(new THREE.PlaneGeometry(w,w*0.28), new THREE.MeshBasicMaterial({map:pick(pool),transparent:true}));
       sign.position.set(b.x+fx*(off+0.12), rand(3.5,6.5), b.z+fz*(off+0.12)); sign.rotation.y=Math.atan2(fx,fz);
       world.add(sign); neonSigns.push({o:sign,night:1}); signs++; }
-    if(bills<45 && b.hw>7 && Math.random()<0.45){ const col=pick(NEON_COLORS); const [fx,fz,off]=pick(faces);
-      const bill=new THREE.Mesh(new THREE.PlaneGeometry(b.hw*1.3,b.hw*0.65), new THREE.MeshBasicMaterial({map:signTexture(pick(SIGN_WORDS),col),transparent:true,side:THREE.DoubleSide}));
+    if(bills<20 && b.hw>7 && Math.random()<0.4){ const [fx,fz,off]=pick(faces);
+      const bill=new THREE.Mesh(new THREE.PlaneGeometry(b.hw*1.3,b.hw*0.65), new THREE.MeshBasicMaterial({map:pick(pool),transparent:true,side:THREE.DoubleSide}));
       bill.position.set(b.x+fx*off, h*0.9, b.z+fz*off); bill.rotation.y=Math.atan2(fx,fz); world.add(bill); neonSigns.push({o:bill,night:0.7}); bills++; }
     // lit windows on two faces → one instanced mesh (cheap), glow at night
     for(const [fx,fz,off] of [pick(faces),pick(faces)]){
-      const tx=fz, tz=-fx, halfW=(fx!==0?b.hd:b.hw), rows=Math.min(18,Math.floor(h/4)), cols=Math.max(2,Math.floor(halfW*2/3));
-      for(let r=1;r<rows;r++) for(let cxi=0;cxi<cols;cxi++){ if(Math.random()>0.34) continue; const t=(cxi-(cols-1)/2)*3;
+      const tx=fz, tz=-fx, halfW=(fx!==0?b.hd:b.hw), rows=Math.min(14,Math.floor(h/5)), cols=Math.max(2,Math.floor(halfW*2/3.4));
+      for(let r=1;r<rows;r++) for(let cxi=0;cxi<cols;cxi++){ if(Math.random()>0.26) continue; const t=(cxi-(cols-1)/2)*3;
         winMats.push(M4(b.x+fx*(off+0.12)+tx*t, r*4, b.z+fz*(off+0.12)+tz*t, Math.atan2(fx,fz))); }
     }
   }
@@ -805,30 +819,20 @@ function buildWorld(){
   }
   // buildings: mix of the kit's complete buildings and towers assembled from wall modules
   const bldMats={}; KIT_BUILDINGS.forEach(b=>bldMats[b.name]=[]);
-  const towerMats={}; const roofMats={}; const acMats=[];
-  // one pre-assembled kit building scaled to fill a plot (cheap: a single instanced mesh)
+  const boxTowerMats=FACADES.map(()=>[]);       // one instanced box mesh per facade material
+  // a tall high-rise: ONE box (12 tris) with a window-grid facade — the cheap workhorse of the skyline
+  function addBoxTower(cx,cz,plotHW,plotHD){
+    const fi=randi(0,FACADES.length-1), h=rand(18,66);
+    boxTowerMats[fi].push(M4(cx,h/2,cz,pick([0,Math.PI/2]),plotHW*2,h,plotHD*2));
+    colliders.push({x:cx,z:cz,hw:plotHW+0.3,hd:plotHD+0.3,h});
+  }
+  // a pre-assembled kit building scaled to fill a plot (instanced: cheap, detailed at ground level)
   function addKitBuilding(cx,cz,plotHW,plotHD){
     const kb=pick(KIT_BUILDINGS); const ry=pick([0,Math.PI/2,Math.PI,-Math.PI/2]);
     const rot=Math.abs(Math.round(ry/(Math.PI/2)))%2===1; const bw=rot?kb.hd:kb.hw, bd=rot?kb.hw:kb.hd;
     const s=clamp(Math.min(plotHW/bw,plotHD/bd),0.9,2.4);
-    bldMats[kb.name].push(M4(cx,0,cz,ry,s,s,s));
+    bldMats[kb.name].push(M4(cx,0,cz,ry,s,s,s*rand(1,1.6)));
     colliders.push({x:cx,z:cz,hw:bw*s+0.4,hd:bd*s+0.4});
-  }
-  // a modular tower sized to its plot: ring of 2m panels, window rows, cornice, roof
-  function addTower(cx,cz,plotHW,plotHD){
-    const st=pick(TOWER_STYLES);
-    const wP=Math.max(2,Math.round(plotHW)), dP=Math.max(2,Math.round(plotHD)); // panels per side
-    const wHalf=wP, dHalf=dP, rows=randi(5,20);
-    towerMats[st.wall]=towerMats[st.wall]||[]; towerMats[st.win]=towerMats[st.win]||[]; towerMats[st.first]=towerMats[st.first]||[]; towerMats[st.cornice]=towerMats[st.cornice]||[];
-    for(let r=0;r<rows;r++){ const y=r, kind=r===0?st.first:(r%3===1?st.win:st.wall); const arr=towerMats[kind];
-      for(let k=0;k<wP;k++){ const x=cx-wHalf+1+k*2; arr.push(M4(x,y,cz-dHalf,0)); arr.push(M4(x,y,cz+dHalf,Math.PI)); }
-      for(let k=0;k<dP;k++){ const z=cz-dHalf+1+k*2; arr.push(M4(cx-wHalf,y,z,Math.PI/2)); arr.push(M4(cx+wHalf,y,z,-Math.PI/2)); } }
-    for(let k=0;k<wP;k++){ const x=cx-wHalf+1+k*2; towerMats[st.cornice].push(M4(x,rows,cz-dHalf,0)); towerMats[st.cornice].push(M4(x,rows,cz+dHalf,Math.PI)); }
-    for(let k=0;k<dP;k++){ const z=cz-dHalf+1+k*2; towerMats[st.cornice].push(M4(cx-wHalf,rows,z,Math.PI/2)); towerMats[st.cornice].push(M4(cx+wHalf,rows,z,-Math.PI/2)); }
-    roofMats[st.roof]=roofMats[st.roof]||[]; const rs=st.roof==='Roof_4x4'?4:2;
-    for(let rx=-wHalf+rs/2; rx<=wHalf-rs/2+0.01; rx+=rs) for(let rz=-dHalf+rs/2; rz<=dHalf-rs/2+0.01; rz+=rs) roofMats[st.roof].push(M4(cx+rx,rows,cz+rz));
-    if(Math.random()<0.6) acMats.push(M4(cx+rand(-2,2),rows,cz+rand(-2,2),rand(0,TAU)));
-    colliders.push({x:cx,z:cz,hw:wHalf+0.3,hd:dHalf+0.3});
   }
   let placed=0;
   for(const bl of blocks){
@@ -837,20 +841,19 @@ function buildWorld(){
     const half=CFG.block/2-3.5, gx=randi(2,3), gz=randi(2,3);
     const pw=half*2/gx, pd=half*2/gz, plotHW=pw/2-1.4, plotHD=pd/2-1.4;
     for(let a=0;a<gx && placed<CFG.buildings;a++) for(let b=0;b<gz && placed<CFG.buildings;b++){
-      if(Math.random()<0.1) continue;                       // occasional empty lot for variety
+      if(Math.random()<0.04) continue;                      // rare empty lot for variety
       const px=bl.cx-half+pw*(a+0.5), pz=bl.cz-half+pd*(b+0.5);
-      if(!HAS_KIT){ const key=pick(BUILDING_KEYS); const m=inst(key); const scl=rand(0.8,1.5); m.scale.multiplyScalar(scl); const d=m.userData.dim; m.position.set(px,0,pz); world.add(m); colliders.push({x:px,z:pz,hw:d.x*scl/2,hd:d.z*scl/2}); placed++; continue; }
-      if(Math.random()<0.62) addKitBuilding(px,pz,plotHW,plotHD); else addTower(px,pz,plotHW,plotHD); // mostly cheap kit buildings, some tall towers
+      if(!HAS_KIT){ addBoxTower(px,pz,plotHW,plotHD); placed++; continue; }
+      if(Math.random()<0.78) addBoxTower(px,pz,plotHW,plotHD); else addKitBuilding(px,pz,plotHW,plotHD); // mostly cheap box towers for the skyline
       placed++;
     }
   }
   for(const [name,mats] of Object.entries(bldMats)) instKit(name,mats,{castShadow:true});
-  for(const [name,mats] of Object.entries(towerMats)) instKit(name,mats);
-  for(const [name,mats] of Object.entries(roofMats)) instKit(name,mats);
-  instKit('Prop_ACUnit',acMats);
+  boxTowerMats.forEach((mats,i)=>{ if(!mats.length) return; const im=new THREE.InstancedMesh(BOX_GEO,FACADES[i],mats.length);
+    for(let k=0;k<mats.length;k++) im.setMatrixAt(k,mats[k]); im.castShadow=true; im.receiveShadow=true; im.frustumCulled=false; im.instanceMatrix.needsUpdate=true; world.add(im); });
   buildNeon();
   // ---- street furniture: fills the empty space and gives things to hit ----
-  const place=(key,x,z,ry=rand(0,TAU),col=null)=>{ const p=inst(key); p.position.set(x,0,z); p.rotation.y=ry; world.add(p);
+  const place=(key,x,z,ry=rand(0,TAU),col=null)=>{ const p=inst(key); p.position.set(x,0,z); p.rotation.y=ry; noShadow(p); world.add(p);
     if(col) colliders.push({x,z,hw:col,hd:col}); return p; };
   let lamps=0;
   for(const c of coords){ for(const d of coords){
@@ -1287,20 +1290,19 @@ function exitCar(){ const c=player.inCar; if(!c) return;
 // =========================================================================
 let legPhase=0;
 function updateFoot(dt){
-  const mxv=Input.moveX(), myv=Input.moveY(), mag=Math.hypot(mxv,myv), sprint=Input.sprint(), spd=sprint?7.5:4.0;
-  if(mag>0.12){ const cf=new THREE.Vector3(Math.sin(cam.yaw),0,Math.cos(cam.yaw)), cr=new THREE.Vector3(cf.z,0,-cf.x);
+  const mxv=Input.moveX(), myv=Input.moveY(), mag=Math.min(1,Math.hypot(mxv,myv)), sprint=Input.sprint(), spd=sprint?7.2:3.9;
+  if(mag>0.12){
+    const cf=new THREE.Vector3(Math.sin(cam.yaw),0,Math.cos(cam.yaw)); // camera forward = screen "up"
+    const cr=new THREE.Vector3(-cf.z,0,cf.x);                          // camera right = screen "right" (fixes L/R invert)
     const dir=new THREE.Vector3().addScaledVector(cr,mxv).addScaledVector(cf,-myv);
-    if(dir.lengthSq()>0.001){ dir.normalize();
-      // GTA-style: character rotates smoothly toward the stick direction (snappier at a run)
-      const tgt=Math.atan2(dir.x,dir.z);
-      let dh=tgt-player.heading; while(dh>Math.PI)dh-=TAU; while(dh<-Math.PI)dh+=TAU;
-      player.heading+=dh*clamp(dt*(sprint?14:10),0,1);
-      // move along facing so tight turns arc naturally instead of sliding sideways
-      const align=clamp(Math.cos(dh),0,1);
-      const mv=new THREE.Vector3(Math.sin(player.heading),0,Math.cos(player.heading));
-      let nx=player.pos.x+mv.x*spd*mag*align*dt, nz=player.pos.z+mv.z*spd*mag*align*dt;
-      if(!blocked(nx,nz,0.6)){ player.pos.x=clamp(nx,-W+4,W-4); player.pos.z=clamp(nz,-W+4,W-4); } legPhase+=dt*spd*mag*2.4;
-      player.speed=spd*mag*align;
+    if(dir.lengthSq()>0.0001){ dir.normalize();
+      // move DIRECTLY in the stick direction — responsive, camera-relative, no arc or slide
+      const nx=player.pos.x+dir.x*spd*mag*dt, nz=player.pos.z+dir.z*spd*mag*dt;
+      if(!blocked(nx,nz,0.6)){ player.pos.x=clamp(nx,-W+4,W-4); player.pos.z=clamp(nz,-W+4,W-4); }
+      // the body only turns to FACE where you're going (visual; it never fights the controls)
+      const tgt=Math.atan2(dir.x,dir.z); let dh=tgt-player.heading; while(dh>Math.PI)dh-=TAU; while(dh<-Math.PI)dh+=TAU;
+      player.heading+=dh*clamp(dt*18,0,1);
+      legPhase+=dt*spd*mag*2.4; player.speed=spd*mag;
     } else player.speed=0;
   } else player.speed=0;
   // jump (GTA V: X button)
@@ -1460,7 +1462,7 @@ const IS_XBOX=/xbox/i.test(navigator.userAgent);
 
 // ========================= SETTINGS =========================
 const SET={ units:'MPH', autoCam:true, invertX:false, invertY:false, minimap:'ON', difficulty:'NORMAL', timeOfDay:'AUTO',
-  camDefault:'NEAR', fullscreen:IS_XBOX, shadows:'HIGH', drawDist:'MED',
+  camDefault:'NEAR', fullscreen:IS_XBOX, shadows:'MED', drawDist:'MED',
   masterVol:0.9, musicVol:0.6, sfxVol:0.6, vibration:true, steerSens:1.0, lookSens:1.0 };
 function saveSet(){ try{ localStorage.setItem('nd_set',JSON.stringify(SET)); }catch(e){} }
 function loadSet(){ try{ const s=JSON.parse(localStorage.getItem('nd_set')); if(s) Object.assign(SET,s); }catch(e){} }
@@ -1671,7 +1673,8 @@ Input.init(); loadSet();
 
 // debug hook for automated testing (harmless)
 window.__dbg={player,traffic,peds,parked,State,coins,ramps,colliders,startGame,pause,openSettings,closeSettings,changeRow,navHome,SET,HOME_ITEMS,CATS,setSel:(c,r)=>{setCat=c;setRow=r;},homeSelRef:()=>homeSel,setHomeSel:(v)=>{homeSel=v;renderHome();},enterCar,exitCar,addWanted,nearestCar,PROTO,MANIFEST,CHAR_PROTO,Character,KIT,Radio,CAM_MODES,cam,scene,camera,titleMusic,TOD,applyOne,playerCarRef:()=>playerCar,
-  damagePlayer,heal,wasted,busted,respawn,pickups,setWanted,raceRef:()=>race,racePadRef:()=>racePad,startRace,colCount:()=>colliders.length};
+  damagePlayer,heal,wasted,busted,respawn,pickups,setWanted,raceRef:()=>race,racePadRef:()=>racePad,startRace,colCount:()=>colliders.length,
+  renderer,renderInfo:()=>({calls:renderer.info.render.calls,tris:renderer.info.render.triangles,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures})};
 </script>
 </body>
 </html>
