@@ -50,7 +50,7 @@ Controls follow the **official GTA V Xbox layout**:
 | **L3** (click stick) | `G` | Horn |
 | **D-Pad Left** | `R` | Cycle radio station |
 | **D-Pad Right** | `H` | Headlights on/off |
-| **View** | `V` | Camera mode (near/mid/far) |
+| **View** | `V` | Camera mode (near / mid / far / first-person / cinematic) |
 | **Right Stick** | `Q` `E` / drag mouse | Look around |
 | **Start** | `Esc` | Pause / Settings |
 
@@ -76,9 +76,18 @@ Cars you leave stay parked (green dot on the minimap) — walk back and press **
 - **Cash to grab** — gold coins are scattered along the roads; scoop them up as you drive.
 - **Living streets** — AI traffic cruises the grid and pedestrians wander the sidewalks.
 - **Wanted system** — hit peds or ram traffic to earn ★ stars. Police cruisers spawn and chase you;
-  lose them to cool down, or get **busted** and lose cash. (Jacking a police car is an instant 2 stars.)
+  break line-of-sight and they drop into a **search** state and cool down, or get **busted**. At
+  3★+ the cops throw up **roadblocks** ahead of you. (Jacking a police car is an instant 2 stars.)
+- **Health & armor** — bars bottom-right; crashes and cops hurt you. Grab the glowing **green**
+  (health), **blue** (armor) and **yellow** (vehicle repair) pickups around the city. Run out of
+  health and you get a cinematic **WASTED**; a slow bump from a cop is **BUSTED** — either way you
+  respawn nearby minus some cash.
 - **Delivery jobs** — drive to the **yellow** marker for a package, then race it to the **green**
   drop-off for a payout. Endless jobs.
+- **Checkpoint races** — drive into the **magenta** pad to start a timed run through blue rings for
+  a big cash prize.
+- **Stunts & drifting** — hit a ramp for a slow-mo **stunt jump** (spins pay extra); hold a long
+  **drift** to bank a cash bonus; hold throttle + brake for a smoky burnout.
 - **HUD** — speedometer + gear, cash, wanted stars, a north-up **minimap**, and objective tracker.
 
 ---
