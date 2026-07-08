@@ -202,7 +202,7 @@ import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 const LITE=new URLSearchParams(location.search).has('lite'); // tiny world for automated tests / weak GPUs
 const CFG = LITE
   ? { world:240, block:78, road:18, buildings:10, traffic:6, peds:8, coins:12, ramps:2, parkedCars:6, shadow:1024 }
-  : { world:620, block:78, road:18, buildings:150, traffic:18, peds:26, coins:44, ramps:6, parkedCars:44, shadow:2048 };
+  : { world:620, block:78, road:18, buildings:150, traffic:12, peds:16, coins:32, ramps:6, parkedCars:16, shadow:1536 };
 const MPH = 2.23694;
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
 const lerp=(a,b,t)=>a+(b-a)*t;
@@ -639,6 +639,8 @@ class Character {
   }
 }
 function inst(key){ const p=PROTO[key]; if(!p) return new THREE.Group(); const c=p.clone(true); c.userData.dim=p.userData.dim; return c; }
+// perf: only buildings + the player's car cast shadows. Traffic/parked cars & peds skip it.
+function noShadow(obj){ obj.traverse(o=>{ if(o.isMesh||o.isSkinnedMesh) o.castShadow=false; }); }
 const CAR_KEYS=['car_compact','car_coupe','car_hatch','car_minivan','car_offroad','car_pickup','car_sedan','car_sport','car_suv','car_wagon'];
 const BUILDING_KEYS=['b_apartment','b_office','b_shop','b_corner','b_club','b_warehouse'];
 
@@ -847,7 +849,7 @@ function buildWorld(){
     if(Math.random()<0.3) place('bench', c+11, d+11, pick([0,Math.PI/2]), 0.9);
     if(Math.random()<0.22) place('dumpster', c+rand(-6,6), d+rand(-6,6), pick([0,Math.PI/2]), 1.1);
   }}
-  // ---- parked cars along the curbs: big density boost, all solid ----
+  // ---- parked cars along the curbs: REAL, enterable cars (walk up + press Y) ----
   let parkedDecor=0;
   for(const line of roadLines){ if(parkedDecor>=CFG.parkedCars) break;
     for(let t=0;t<3 && parkedDecor<CFG.parkedCars;t++){
@@ -857,8 +859,8 @@ function buildWorld(){
       else { z=rand(-W+40,W-40); x=line.x+off; ry=off>0?-Math.PI/2:Math.PI/2; }
       if(blocked(x,z,3)) continue;
       if(Math.random()<0.4) continue; // leave gaps
-      const car=inst(pick(CAR_KEYS)); car.position.set(x,0,z); car.rotation.y=ry; world.add(car);
-      colliders.push({x,z,hw:1.2,hd:2.4}); parkedDecor++;
+      const c=new Car(pick(CAR_KEYS),x,z); c.heading=ry; c.integrate(0.0001); noShadow(c.mesh);
+      parked.push(c); parkedDecor++;
     }
   }
   // ramps on some roads
@@ -967,7 +969,7 @@ const traffic=[], peds=[];
 function spawnTraffic(){ const line=pick(roadLines); const off=CFG.road*0.24; let x,z,heading;
   if(line.dir==='h'){ x=rand(-W+30,W-30); const s=Math.random()<0.5; z=line.z+(s?off:-off); heading=s?Math.PI/2:-Math.PI/2; }
   else { z=rand(-W+30,W-30); const s=Math.random()<0.5; x=line.x+(s?off:-off); heading=s?0:Math.PI; }
-  if(blocked(x,z,3)) return; const c=new Car(pick(CAR_KEYS),x,z); c.heading=heading; c.ai={line,cruise:rand(15,26)}; c.speed=c.ai.cruise; traffic.push(c); }
+  if(blocked(x,z,3)) return; const c=new Car(pick(CAR_KEYS),x,z); c.heading=heading; c.ai={line,cruise:rand(15,26)}; c.speed=c.ai.cruise; noShadow(c.mesh); traffic.push(c); }
 function updTraffic(c,dt){ const f=c.forward;
   // brake for whatever is ahead: player car, parked cars, other traffic, the player on foot
   let ahead=null, aheadD=12;
@@ -990,7 +992,7 @@ function updTraffic(c,dt){ const f=c.forward;
 function spawnPed(){ let x,z,t=0; const coords=window.__coords||[0];
   do{ const c=pick(coords),d=pick(coords); x=c+rand(CFG.road*0.6,CFG.road*1.2); z=d+rand(CFG.road*0.6,CFG.road*1.2); t++; } while(blocked(x,z,1)&&t<8);
   const char=new Character(Math.random()<0.5?'male':'female',{ skinTint:pick(SKIN_TONES), clothTint:pick(CLOTH_TINTS) });
-  const g=new THREE.Group(); g.add(char.group);
+  const g=new THREE.Group(); g.add(char.group); noShadow(g);
   g.position.set(x,0,z); scene.add(g);
   peds.push({mesh:g,char,pos:new THREE.Vector3(x,0,z),heading:rand(0,TAU),speed:rand(1,2.2),t:rand(0,5),phase:rand(0,TAU)}); }
 function updPed(p,dt){
@@ -1076,9 +1078,10 @@ function updateCamera(dt){
     cam.yaw=av.heading+cam.manual;
   } else { // free orbit (on foot, or in-car with auto-center off)
     cam.footYaw+=mx; cam.pitch=clamp(cam.pitch+my,0.02,0.85);
-    if(!av && player.speed>1.0 && Math.abs(rawX)<0.05){ // gentle trail behind, only when not steering camera
+    if(!av && player.speed>1.2 && Math.abs(rawX)<0.05){ // GTA-style: eases behind you, firmer the faster you move
       let dy=player.heading-cam.footYaw; while(dy>Math.PI)dy-=TAU; while(dy<-Math.PI)dy+=TAU;
-      cam.footYaw+=dy*clamp(dt*0.7,0,1);
+      const trail=0.35+clamp(player.speed/7.5,0,1)*1.15; // walk: loose · sprint: snaps behind
+      cam.footYaw+=dy*clamp(dt*trail,0,1);
     }
     cam.yaw=cam.footYaw;
   }
@@ -1132,8 +1135,10 @@ function drawMinimap(){
   mx.fillStyle='#ffd23f'; for(const c of coins){ if(c.taken) continue; const x=toX(c.pos.x),y=toY(c.pos.z); if(x<0||x>mm.width||y<0||y>mm.height) continue; mx.fillRect(x-1.5,y-1.5,3,3); }
   // traffic
   mx.fillStyle='#6cf'; for(const c of traffic){ const x=toX(c.pos.x),y=toY(c.pos.z); if(x<0||x>mm.width||y<0||y>mm.height) continue; mx.beginPath(); mx.arc(x,y,2,0,TAU); mx.fill(); }
-  // your parked car(s) — clamped to the edge so you can always find your ride
-  mx.fillStyle='#39ff88'; for(const c of parked){ mx.beginPath(); mx.arc(clamp(toX(c.pos.x),5,mm.width-5),clamp(toY(c.pos.z),5,mm.height-5),3.5,0,TAU); mx.fill(); }
+  // street cars you can jack: small dim dots (only when on-screen). YOUR car(s): bright, clamped to the edge so you can always find your ride.
+  for(const c of parked){ const x=toX(c.pos.x),y=toY(c.pos.z);
+    if(c._playerOwned){ mx.fillStyle='#39ff88'; mx.beginPath(); mx.arc(clamp(x,5,mm.width-5),clamp(y,5,mm.height-5),3.5,0,TAU); mx.fill(); }
+    else { if(x<0||x>mm.width||y<0||y>mm.height) continue; mx.fillStyle='rgba(57,255,136,0.5)'; mx.beginPath(); mx.arc(x,y,2,0,TAU); mx.fill(); } }
   // police
   mx.fillStyle='#ff3b3b'; for(const c of State.police){ mx.beginPath(); mx.arc(clamp(toX(c.pos.x),4,mm.width-4),clamp(toY(c.pos.z),4,mm.height-4),3,0,TAU); mx.fill(); }
   // mission marker (clamped to edge)
@@ -1180,7 +1185,7 @@ function exitCar(){ const c=player.inCar; if(!c) return;
   }
   if(!spot) spot=c.pos.clone().add(right.multiplyScalar(2.6));
   player.pos.copy(spot); player.pos.y=0; player.heading=c.heading; player.mesh.visible=true; player.inCar=null;
-  c.speed=0; c.lateral=0;
+  c.speed=0; c.lateral=0; c._playerOwned=true;
   parked.push(c); // stays where you left it — walk back up and press Y to get back in
   cam.footYaw=c.heading; hidePrompt(); Audio.blip(440,0.1,'sine',0.25); }
 
@@ -1192,10 +1197,18 @@ function updateFoot(dt){
   const mxv=Input.moveX(), myv=Input.moveY(), mag=Math.hypot(mxv,myv), sprint=Input.sprint(), spd=sprint?7.5:4.0;
   if(mag>0.12){ const cf=new THREE.Vector3(Math.sin(cam.yaw),0,Math.cos(cam.yaw)), cr=new THREE.Vector3(cf.z,0,-cf.x);
     const dir=new THREE.Vector3().addScaledVector(cr,mxv).addScaledVector(cf,-myv);
-    if(dir.lengthSq()>0.001){ dir.normalize(); player.heading=Math.atan2(dir.x,dir.z);
-      let nx=player.pos.x+dir.x*spd*dt, nz=player.pos.z+dir.z*spd*dt;
-      if(!blocked(nx,nz,0.6)){ player.pos.x=clamp(nx,-W+4,W-4); player.pos.z=clamp(nz,-W+4,W-4); } legPhase+=dt*spd*mag*2.4; }
-    player.speed=spd*mag;
+    if(dir.lengthSq()>0.001){ dir.normalize();
+      // GTA-style: character rotates smoothly toward the stick direction (snappier at a run)
+      const tgt=Math.atan2(dir.x,dir.z);
+      let dh=tgt-player.heading; while(dh>Math.PI)dh-=TAU; while(dh<-Math.PI)dh+=TAU;
+      player.heading+=dh*clamp(dt*(sprint?14:10),0,1);
+      // move along facing so tight turns arc naturally instead of sliding sideways
+      const align=clamp(Math.cos(dh),0,1);
+      const mv=new THREE.Vector3(Math.sin(player.heading),0,Math.cos(player.heading));
+      let nx=player.pos.x+mv.x*spd*mag*align*dt, nz=player.pos.z+mv.z*spd*mag*align*dt;
+      if(!blocked(nx,nz,0.6)){ player.pos.x=clamp(nx,-W+4,W-4); player.pos.z=clamp(nz,-W+4,W-4); } legPhase+=dt*spd*mag*2.4;
+      player.speed=spd*mag*align;
+    } else player.speed=0;
   } else player.speed=0;
   // jump (GTA V: X button)
   if(Input.jump()&&player.y<=0.01){ player.vy=5.4; rumble(0.1,0.2,80); }
@@ -1474,7 +1487,7 @@ Input.init(); loadSet();
   for(let i=0;i<CFG.peds;i++) spawnPed();
   // spawn ON FOOT on the sidewalk, with a car parked right beside you to jack
   player.pos.set(CFG.road*0.9, 0, 6); player.heading=0; player.mesh.visible=true; player.inCar=null;
-  playerCar=new Car('car_sport', CFG.road*0.24, 0, false); playerCar.heading=0; playerCar.integrate(0.0001);
+  playerCar=new Car('car_sport', CFG.road*0.24, 0, false); playerCar.heading=0; playerCar.integrate(0.0001); playerCar._playerOwned=true;
   parked.push(playerCar);
   cam.footYaw=Math.PI; camera.position.set(0,4,-10);
   applyAll(); setP(1);
