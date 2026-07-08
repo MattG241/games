@@ -48,7 +48,9 @@ modern browser, including the **Xbox console's Microsoft Edge** browser. Press *
 | **Start** | `Esc` | Pause |
 
 The chase camera automatically swings behind the car as you drive, so "forward" is always up the
-screen — steering feels natural on a controller.
+screen — steering feels natural on a controller. The stick uses a quadratic response curve for
+fine steering near center, and the controller **rumbles** on crashes, jumps, pickups, and busts.
+Cars you leave stay parked (green dot on the minimap) — walk back and press **Y** to get back in.
 
 ---
 

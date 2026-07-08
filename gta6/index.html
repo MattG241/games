@@ -171,7 +171,8 @@ const Input = {
   kDown(c){ const now=!!this.keys[c]; const was=this.prevK[c]; this.prevK[c]=now; return now&&!was; },
   throttle(){ let t=this.tr(7); if(this.bt(7)) t=Math.max(t,1); if(this.keys['KeyW']||this.keys['ArrowUp']) t=1; return t; },
   brake(){ let b=this.tr(6); if(this.bt(6)) b=Math.max(b,1); if(this.keys['KeyS']||this.keys['ArrowDown']) b=1; return b; },
-  steer(){ let s=this.ax(0); if(this.keys['KeyA']||this.keys['ArrowLeft']) s-=1; if(this.keys['KeyD']||this.keys['ArrowRight']) s+=1; return clamp(s,-1,1); },
+  steer(){ let s=this.ax(0); s=Math.sign(s)*s*s; // quadratic curve: fine control near center, full lock at edge
+    if(this.keys['KeyA']||this.keys['ArrowLeft']) s-=1; if(this.keys['KeyD']||this.keys['ArrowRight']) s+=1; return clamp(s,-1,1); },
   handbrake(){ return this.bt(0)||!!this.keys['Space']; },
   moveX(){ let x=this.ax(0); if(this.keys['KeyA']||this.keys['ArrowLeft']) x-=1; if(this.keys['KeyD']||this.keys['ArrowRight']) x+=1; return clamp(x,-1,1); },
   moveY(){ let y=this.ax(1); if(this.keys['KeyW']||this.keys['ArrowUp']) y-=1; if(this.keys['KeyS']||this.keys['ArrowDown']) y+=1; return clamp(y,-1,1); },
@@ -182,6 +183,12 @@ const Input = {
   start(){ return this.btDown(9)||this.kDown('Escape'); },
   confirm(){ return this.btDown(0)||this.kDown('Enter')||this.kDown('Space'); },
 };
+// Xbox controller vibration (no-ops without a pad or actuator support)
+function rumble(weak=0.4, strong=0.6, ms=150){
+  const p=Input.gp(); const act=p&&(p.vibrationActuator||(p.hapticActuators&&p.hapticActuators[0]));
+  if(!act||!act.playEffect) return;
+  act.playEffect('dual-rumble',{duration:ms,weakMagnitude:clamp(weak,0,1),strongMagnitude:clamp(strong,0,1)}).catch(()=>{});
+}
 
 // =========================================================================
 //  AUDIO
@@ -197,8 +204,16 @@ const Audio = {
     this.sGain=this.ctx.createGain(); this.sGain.gain.value=0;
     const so=this.ctx.createOscillator(); so.type='square'; so.frequency.value=700; const sg=this.ctx.createGain(); sg.gain.value=0.04;
     so.connect(this.sGain); this.sGain.connect(sg); sg.connect(this.master); so.start(); this.sOsc=so;
+    // tire screech: looped noise through a bandpass
+    const nb=this.ctx.createBuffer(1,this.ctx.sampleRate,this.ctx.sampleRate);
+    const nd=nb.getChannelData(0); for(let i=0;i<nd.length;i++) nd[i]=Math.random()*2-1;
+    const ns=this.ctx.createBufferSource(); ns.buffer=nb; ns.loop=true;
+    const bp=this.ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=900; bp.Q.value=6;
+    this.scGain=this.ctx.createGain(); this.scGain.gain.value=0;
+    ns.connect(bp); bp.connect(this.scGain); this.scGain.connect(this.master); ns.start();
     this.on=true;
   },
+  screech(amount){ if(!this.on) return; this.scGain.gain.setTargetAtTime(clamp(amount,0,0.22), this.ctx.currentTime, 0.08); },
   resume(){ if(this.ctx&&this.ctx.state==='suspended') this.ctx.resume(); },
   engine(r,on){ if(!this.on) return; const t=this.ctx.currentTime; this.eGain.gain.setTargetAtTime(on?1:0,t,0.1); this.eOsc.frequency.setTargetAtTime(55+r*150,t,0.05); },
   siren(on){ if(!this.on) return; this.sGain.gain.setTargetAtTime(on?1:0,this.ctx.currentTime,0.2);
@@ -244,6 +259,9 @@ sun.castShadow=true; sun.shadow.mapSize.set(CFG.shadow,CFG.shadow); sun.shadow.c
 const SS=260; Object.assign(sun.shadow.camera,{left:-SS,right:SS,top:SS,bottom:-SS}); sun.shadow.bias=-0.0004;
 scene.add(sun); scene.add(sun.target);
 scene.add(new THREE.AmbientLight(0x442266,0.45));
+// headlights for the player's car (single spotlight, repositioned each frame)
+const headlight=new THREE.SpotLight(0xfff3d0, 0, 40, 0.42, 0.5, 1.2);
+scene.add(headlight); scene.add(headlight.target);
 
 // =========================================================================
 //  ASSET LOADER (GLB) + normalization
@@ -486,12 +504,18 @@ class Car {
     let nx=this.pos.x+(f.x*this.speed+r.x*this.lateral)*dt;
     let nz=this.pos.z+(f.z*this.speed+r.z*this.lateral)*dt;
     const hit=resolve(nx,nz,this.hw+0.2,this.hd+0.2);
-    if(hit.hit){ nx=hit.x; nz=hit.z; if(Math.abs(this.speed)>12){ Audio.thud(Math.abs(this.speed)/45); } this.speed*=0.4; this.lateral*=0.3; }
+    this.impact=0;
+    if(hit.hit){ nx=hit.x; nz=hit.z; const sp=Math.abs(this.speed);
+      if(sp>12){ Audio.thud(sp/45); this.impact=sp; this.speed=-this.speed*0.25; } // bounce off walls
+      else this.speed*=0.4;
+      this.lateral*=0.3; }
     nx=clamp(nx,-W+6,W-6); nz=clamp(nz,-W+6,W-6);
     this.pos.set(nx,0,nz);
     // ramp jump
-    if(this.y<=0.01){ for(const rp of ramps){ if(Math.abs(nx-rp.position.x)<3&&Math.abs(nz-rp.position.z)<3&&Math.abs(this.speed)>16){ this.vy=Math.min(Math.abs(this.speed)*0.28,10); Audio.blip(500,0.15,'sawtooth',0.2); break; } } }
-    this.vy-=26*dt; this.y+=this.vy*dt; if(this.y<0){ this.y=0; this.vy=0; }
+    this.justJumped=false; this.justLanded=false;
+    if(this.y<=0.01){ for(const rp of ramps){ if(Math.abs(nx-rp.position.x)<3&&Math.abs(nz-rp.position.z)<3&&Math.abs(this.speed)>16){ this.vy=Math.min(Math.abs(this.speed)*0.28,10); this.justJumped=true; Audio.blip(500,0.15,'sawtooth',0.2); break; } } }
+    const wasAir=this.y>0.05;
+    this.vy-=26*dt; this.y+=this.vy*dt; if(this.y<0){ if(wasAir) this.justLanded=true; this.y=0; this.vy=0; }
     this.mesh.position.set(nx,this.y,nz); this.mesh.rotation.set(this.vy*0.01,this.heading,(this._steer||0)*-0.05*clamp(this.speed/20,0,1));
     if(this.lightbar){ const t=performance.now()*0.006; const on=Math.sin(t)>0; this.lightbar.rl.material.color.setRGB(on?1:.15,.05,.05); this.lightbar.bl.material.color.setRGB(.05,.05,on?.15:1); }
   }
@@ -516,7 +540,17 @@ function spawnTraffic(){ const line=pick(roadLines); const off=CFG.road*0.24; le
   if(line.dir==='h'){ x=rand(-W+30,W-30); const s=Math.random()<0.5; z=line.z+(s?off:-off); heading=s?Math.PI/2:-Math.PI/2; }
   else { z=rand(-W+30,W-30); const s=Math.random()<0.5; x=line.x+(s?off:-off); heading=s?0:Math.PI; }
   if(blocked(x,z,3)) return; const c=new Car(pick(CAR_KEYS),x,z); c.heading=heading; c.ai={line,cruise:rand(15,26)}; c.speed=c.ai.cruise; traffic.push(c); }
-function updTraffic(c,dt){ const f=c.forward; c.speed=lerp(c.speed,c.ai.cruise,dt*1.5);
+function updTraffic(c,dt){ const f=c.forward;
+  // brake for whatever is ahead: player car, parked cars, other traffic, the player on foot
+  let ahead=null, aheadD=12;
+  const candidates=traffic.concat(parked, player.inCar?[player.inCar]:[]);
+  for(const o of candidates){ if(o===c) continue;
+    const to=new THREE.Vector3().subVectors(o.pos,c.pos); const d=to.length();
+    if(d<aheadD && to.normalize().dot(f)>0.75){ ahead=o; aheadD=d; } }
+  if(!player.inCar){ const to=new THREE.Vector3().subVectors(player.pos,c.pos); const d=to.length();
+    if(d<aheadD && to.normalize().dot(f)>0.7){ ahead=player; aheadD=d; } }
+  const target = ahead ? (aheadD<6?0:c.ai.cruise*clamp((aheadD-6)/6,0,1)) : c.ai.cruise;
+  c.speed=lerp(c.speed,target,dt*(ahead?4:1.5));
   let nx=c.pos.x+f.x*c.speed*dt, nz=c.pos.z+f.z*c.speed*dt;
   if(resolve(nx,nz,c.hw,c.hd).hit){ c.heading+=Math.PI/2; c.speed*=0.5; nx=c.pos.x; nz=c.pos.z; }
   if(Math.abs(nx)>W-14||Math.abs(nz)>W-14){ c.heading+=Math.PI; nx=clamp(nx,-W+16,W-16); nz=clamp(nz,-W+16,W-16); }
@@ -527,11 +561,26 @@ function spawnPed(){ let x,z,t=0; const coords=window.__coords||[0];
   const g=new THREE.Group(); g.add(char.group);
   g.position.set(x,0,z); scene.add(g);
   peds.push({mesh:g,char,pos:new THREE.Vector3(x,0,z),heading:rand(0,TAU),speed:rand(1,2.2),t:rand(0,5),phase:rand(0,TAU)}); }
-function updPed(p,dt){ p.t-=dt; if(p.t<=0){ p.heading+=rand(-1.4,1.4); p.t=rand(2,5); }
-  const f=new THREE.Vector3(Math.sin(p.heading),0,Math.cos(p.heading)); let nx=p.pos.x+f.x*p.speed*dt, nz=p.pos.z+f.z*p.speed*dt;
+function updPed(p,dt){
+  // knocked down: lie flat, then get back up
+  if(p.down>0){ p.down-=dt;
+    p.mesh.rotation.x=-Math.PI/2; p.mesh.position.set(p.pos.x,0.25,p.pos.z);
+    if(p.down<=0){ p.down=0; p.mesh.rotation.x=0; p.panic=4; }
+    return; }
+  // panic: flee from the player's speeding car
+  const pc=player.inCar;
+  if(pc&&Math.abs(pc.speed)>10&&p.pos.distanceTo(pc.pos)<14){
+    const away=new THREE.Vector3().subVectors(p.pos,pc.pos).setY(0);
+    p.heading=Math.atan2(away.x,away.z); p.panic=Math.max(p.panic||0,1.2);
+    if(!p.screamed||p.screamed<performance.now()-4000){ p.screamed=performance.now(); if(Math.random()<0.5) Audio.blip(rand(700,1100),0.25,'sawtooth',0.12); }
+  }
+  if(p.panic>0) p.panic-=dt;
+  const spd=p.panic>0?4.2:p.speed;
+  p.t-=dt; if(p.t<=0&&p.panic<=0){ p.heading+=rand(-1.4,1.4); p.t=rand(2,5); }
+  const f=new THREE.Vector3(Math.sin(p.heading),0,Math.cos(p.heading)); let nx=p.pos.x+f.x*spd*dt, nz=p.pos.z+f.z*spd*dt;
   if(blocked(nx,nz,0.8)||Math.abs(nx)>W-4||Math.abs(nz)>W-4){ p.heading+=Math.PI*0.7; nx=p.pos.x; nz=p.pos.z; }
   p.pos.set(nx,0,nz); p.mesh.position.set(nx,0,nz); p.mesh.rotation.y=p.heading;
-  p.phase+=dt*p.speed*4.2; p.char.walk(p.phase, clamp(p.speed/2.2,0.4,1)); }
+  p.phase+=dt*spd*4.2; p.char.walk(p.phase, clamp(spd/2.2,0.4,1.4)); }
 
 // =========================================================================
 //  COINS (collectibles)
@@ -554,7 +603,7 @@ function updPolice(c,dt){ const tgt=player.inCar?player.inCar.pos:player.pos; co
   let dh=Math.atan2(to.x,to.z)-c.heading; while(dh>Math.PI)dh-=TAU; while(dh<-Math.PI)dh+=TAU;
   c.drive(dt,dist>10?1:0,dist<8?0.6:0,clamp(dh*1.5,-1,1),false); c.integrate(dt);
   if(dist<6 && Math.abs(player.inCar?player.inCar.speed:player.speed)<4) busted(); }
-function busted(){ if(bustCd>0) return; bustCd=3; const lost=Math.round(State.cash*0.3); State.cash=Math.max(0,State.cash-lost); renderCash(); toast(`🚨 BUSTED! Lost <b>$${lost}</b>`,2500); clearPolice(); setWanted(0); }
+function busted(){ if(bustCd>0) return; bustCd=3; const lost=Math.round(State.cash*0.3); State.cash=Math.max(0,State.cash-lost); renderCash(); toast(`🚨 BUSTED! Lost <b>$${lost}</b>`,2500); rumble(0.8,1,450); cam.shake=0.4; clearPolice(); setWanted(0); }
 function clearPolice(){ for(const c of State.police) c.remove(); State.police.length=0; }
 
 // =========================================================================
@@ -569,12 +618,12 @@ function startMission(){ const pickup=roadPoint(); let drop=roadPoint(),g=0; whi
   const mk=makeMarker(0xffd23f); mk.position.copy(pickup); world.add(mk);
   State.mission={phase:'pickup',pickup,drop,marker:mk,reward:randi(300,700)}; setObjective('Drive to the package',pickup); Audio.chime(); }
 function missionPhase(){ const m=State.mission; if(m.phase==='pickup'){ m.phase='deliver'; m.marker.position.copy(m.drop); m.marker.traverse(o=>{ if(o.material&&o.material.color) o.material.color.setHex(0x39ff88); }); setObjective('Deliver the package',m.drop); toast('📦 Package secured — deliver it!'); Audio.chime(); }
-  else { State.cash+=m.reward; renderCash(); Audio.cash(); toast(`💰 Delivered! <b>+$${m.reward}</b>`,2600); world.remove(m.marker); State.mission=null; setObjective('Find the next job…',null); setTimeout(()=>{ if(State.mode==='play') startMission(); },1500); } }
+  else { State.cash+=m.reward; renderCash(); Audio.cash(); rumble(0.3,0.2,200); toast(`💰 Delivered! <b>+$${m.reward}</b>`,2600); world.remove(m.marker); State.mission=null; setObjective('Find the next job…',null); setTimeout(()=>{ if(State.mode==='play') startMission(); },1500); } }
 
 // =========================================================================
 //  CAMERA  (chase cam, auto-behind, TV-friendly)
 // =========================================================================
-const cam={ yaw:0, footYaw:0, pitch:0.32, manual:0, look:new THREE.Vector3(), dist:11 };
+const cam={ yaw:0, footYaw:0, pitch:0.32, manual:0, look:new THREE.Vector3(), dist:11, shake:0 };
 function updateCamera(dt){
   const av=player.inCar; const focus=(av?av.pos:player.pos);
   const focusY=(av?av.y:0);
@@ -590,9 +639,16 @@ function updateCamera(dt){
   const spK=av?clamp(Math.abs(av.speed)/45,0,1):0;
   const dist=(av?cam.dist:6.5)+spK*3;
   const height=(av?4.4:3.2)+cam.pitch*6;
-  const desired=new THREE.Vector3(focus.x-fwd.x*dist, focus.y+focusY+height, focus.z-fwd.z*dist);
+  let desired=new THREE.Vector3(focus.x-fwd.x*dist, focus.y+focusY+height, focus.z-fwd.z*dist);
   if(desired.y<1.2) desired.y=1.2;
+  // building occlusion: if a tower blocks the view, pull the camera in front of it
+  for(let t=1;t>=0.35;t-=0.13){
+    const px=focus.x+(desired.x-focus.x)*t, pz=focus.z+(desired.z-focus.z)*t;
+    if(!blocked(px,pz,0.5)){ if(t<1){ desired.x=focus.x+(desired.x-focus.x)*t; desired.z=focus.z+(desired.z-focus.z)*t; desired.y=Math.max(1.2,focus.y+focusY+height*Math.max(t,0.55)); } break; }
+  }
   camera.position.lerp(desired,clamp(dt*(av?7:9),0,1));
+  // impact shake
+  if(cam.shake>0.001){ camera.position.x+=rand(-1,1)*cam.shake*0.5; camera.position.y+=rand(-1,1)*cam.shake*0.35; camera.position.z+=rand(-1,1)*cam.shake*0.5; cam.shake*=Math.exp(-dt*6); } else cam.shake=0;
   const look=new THREE.Vector3(focus.x+fwd.x*(av?5:2), focus.y+focusY+(av?1.4:1.6), focus.z+fwd.z*(av?5:2));
   cam.look.lerp(look,clamp(dt*8,0,1)); camera.lookAt(cam.look);
   const fov=64+spK*13; camera.fov=lerp(camera.fov,fov,dt*3); camera.updateProjectionMatrix();
@@ -627,6 +683,8 @@ function drawMinimap(){
   mx.fillStyle='#ffd23f'; for(const c of coins){ if(c.taken) continue; const x=toX(c.pos.x),y=toY(c.pos.z); if(x<0||x>mm.width||y<0||y>mm.height) continue; mx.fillRect(x-1.5,y-1.5,3,3); }
   // traffic
   mx.fillStyle='#6cf'; for(const c of traffic){ const x=toX(c.pos.x),y=toY(c.pos.z); if(x<0||x>mm.width||y<0||y>mm.height) continue; mx.beginPath(); mx.arc(x,y,2,0,TAU); mx.fill(); }
+  // your parked car(s) — clamped to the edge so you can always find your ride
+  mx.fillStyle='#39ff88'; for(const c of parked){ mx.beginPath(); mx.arc(clamp(toX(c.pos.x),5,mm.width-5),clamp(toY(c.pos.z),5,mm.height-5),3.5,0,TAU); mx.fill(); }
   // police
   mx.fillStyle='#ff3b3b'; for(const c of State.police){ mx.beginPath(); mx.arc(clamp(toX(c.pos.x),4,mm.width-4),clamp(toY(c.pos.z),4,mm.height-4),3,0,TAU); mx.fill(); }
   // mission marker (clamped to edge)
@@ -640,10 +698,28 @@ function drawMinimap(){
 // =========================================================================
 //  ENTER / EXIT
 // =========================================================================
-function nearestCar(maxD){ let best=null,bd=maxD; for(const c of traffic.concat(State.police)){ const d=c.pos.distanceTo(player.pos); if(d<bd){ bd=d; best=c; } } return best; }
-function enterCar(c){ player.inCar=c; player.mesh.visible=false; const i=traffic.indexOf(c); if(i>=0) traffic.splice(i,1); if(c.police){ addWanted(2); toast('🚔 Grand theft: police cruiser!'); } c.ai=null; hidePrompt(); Audio.blip(660,0.1,'sine',0.25); }
-function exitCar(){ const c=player.inCar; if(!c) return; const side=new THREE.Vector3(Math.cos(c.heading),0,-Math.sin(c.heading)).multiplyScalar(2.6);
-  player.pos.copy(c.pos).add(side); player.pos.y=0; player.heading=c.heading; player.mesh.visible=true; player.inCar=null; c.speed=0; c.lateral=0;
+const parked=[]; // cars the player left — stay in the world and can be re-entered
+function nearestCar(maxD){ let best=null,bd=maxD;
+  for(const c of traffic.concat(State.police,parked)){ const d=c.pos.distanceTo(player.pos); if(d<bd){ bd=d; best=c; } }
+  return best; }
+function enterCar(c){
+  player.inCar=c; player.mesh.visible=false;
+  for(const list of [traffic,parked]){ const i=list.indexOf(c); if(i>=0) list.splice(i,1); }
+  const pi=State.police.indexOf(c); if(pi>=0) State.police.splice(pi,1);
+  if(c.police){ addWanted(2); toast('🚔 Grand theft: police cruiser!'); }
+  c.ai=null; hidePrompt(); Audio.blip(660,0.1,'sine',0.25); rumble(0.3,0.5,120); }
+function exitCar(){ const c=player.inCar; if(!c) return;
+  // try right side, then left, then behind — never exit into a wall
+  const right=new THREE.Vector3(Math.cos(c.heading),0,-Math.sin(c.heading));
+  const back=c.forward.clone().negate();
+  let spot=null;
+  for(const off of [right.clone().multiplyScalar(2.6), right.clone().multiplyScalar(-2.6), back.clone().multiplyScalar(3.6)]){
+    const p=c.pos.clone().add(off); if(!blocked(p.x,p.z,0.6)){ spot=p; break; }
+  }
+  if(!spot) spot=c.pos.clone().add(right.multiplyScalar(2.6));
+  player.pos.copy(spot); player.pos.y=0; player.heading=c.heading; player.mesh.visible=true; player.inCar=null;
+  c.speed=0; c.lateral=0;
+  parked.push(c); // stays where you left it — walk back up and press Y to get back in
   cam.footYaw=c.heading; hidePrompt(); Audio.blip(440,0.1,'sine',0.25); }
 
 // =========================================================================
@@ -661,18 +737,33 @@ function updateFoot(dt){
   } else player.speed=0;
   player.mesh.position.copy(player.pos); player.mesh.rotation.y=player.heading;
   if(player.char) player.char.walk(legPhase, player.speed>0.1?clamp(player.speed/7.5,0.45,1):0);
-  const c=nearestCar(4.6); if(c){ showPrompt('Enter vehicle'); if(Input.interact()) enterCar(c); } else hidePrompt();
+  const c=nearestCar(6.0); if(c){ showPrompt('Enter vehicle'); if(Input.interact()) enterCar(c); } else hidePrompt();
   Audio.engine(0,false);
 }
 function updateDrive(dt){
-  const c=player.inCar; c.drive(dt,Input.throttle(),Input.brake(),Input.steer(),Input.handbrake()); c.integrate(dt);
-  Audio.engine(clamp(Math.abs(c.speed)/c.maxSpeed,0,1)+(Input.throttle()>0.1?0.15:0),true);
-  for(const p of peds){ if(p.pos.distanceTo(c.pos)<2.4&&Math.abs(c.speed)>6){ p.pos.x+=rand(-3,3); p.pos.z+=rand(-3,3); addWanted(1); Audio.thud(0.6); toast('😱 Watch the pedestrians!',1400); } }
-  for(const t of traffic){ if(t.pos.distanceTo(c.pos)<3.4&&Math.abs(c.speed)>12){ const push=new THREE.Vector3().subVectors(t.pos,c.pos).setY(0).normalize().multiplyScalar(2); t.pos.add(push); if(Math.random()<0.25) addWanted(1); Audio.thud(0.5); } }
-  showPrompt('Exit vehicle'); if(Input.interact()){ hidePrompt(); exitCar(); }
+  const c=player.inCar; const hb=Input.handbrake();
+  c.drive(dt,Input.throttle(),Input.brake(),Input.steer(),hb); c.integrate(dt);
+  // pseudo-gearbox: rpm saws up through each "gear" as speed climbs
+  const sp=Math.abs(c.speed), GEAR=13;
+  const rpm=0.25 + ((sp%GEAR)/GEAR)*0.75;
+  Audio.engine(rpm*(0.4+0.6*clamp(sp/8,0,1)) + (Input.throttle()>0.1?0.1:0), true);
+  // tire screech when drifting or braking hard at speed
+  const sliding=(hb&&sp>8)||Math.abs(c.lateral)>4||(Input.brake()>0.5&&sp>18);
+  Audio.screech(sliding?0.12+Math.abs(c.lateral)*0.01:0);
+  // crash feedback: rumble + camera shake scale with impact
+  if(c.impact>0){ rumble(clamp(c.impact/40,0.2,1), clamp(c.impact/30,0.3,1), 220); cam.shake=Math.min(0.8,c.impact/50); }
+  if(c.justJumped) rumble(0.2,0.35,120);
+  if(c.justLanded){ rumble(0.5,0.7,180); cam.shake=Math.max(cam.shake,0.25); }
+  // pedestrians get knocked down, not teleported
+  for(const p of peds){ if(!p.down&&p.pos.distanceTo(c.pos)<2.2&&sp>6){
+    p.down=4; p.downDir=new THREE.Vector3().subVectors(p.pos,c.pos).setY(0).normalize();
+    p.pos.addScaledVector(p.downDir,1.5);
+    addWanted(1); Audio.thud(0.6); rumble(0.4,0.6,150); toast('😱 Watch the pedestrians!',1400); } }
+  for(const t of traffic){ if(t.pos.distanceTo(c.pos)<3.4&&sp>12){ const push=new THREE.Vector3().subVectors(t.pos,c.pos).setY(0).normalize().multiplyScalar(2); t.pos.add(push); if(Math.random()<0.25) addWanted(1); Audio.thud(0.5); rumble(0.3,0.5,140); } }
+  showPrompt('Exit vehicle'); if(Input.interact()){ hidePrompt(); Audio.screech(0); exitCar(); }
 }
 function collectCoins(){ const ref=player.inCar?player.inCar.pos:player.pos; for(const c of coins){ if(c.taken) continue; c.mesh.rotation.y+=0.06; c.mesh.position.y=1.2+Math.sin(performance.now()*0.004+c.pos.x)*0.15;
-  if(ref.distanceTo(c.pos)<(player.inCar?3:2)){ c.taken=true; c.mesh.visible=false; State.cash+=25; renderCash(); Audio.cash(); } } }
+  if(ref.distanceTo(c.pos)<(player.inCar?3:2)){ c.taken=true; c.mesh.visible=false; State.cash+=25; renderCash(); Audio.cash(); rumble(0.15,0.1,70); } } }
 function checkMission(){ if(!State.mission) return; const ref=player.inCar?player.inCar.pos:player.pos; const t=State.mission.phase==='pickup'?State.mission.pickup:State.mission.drop;
   const d=Math.hypot(ref.x-t.x,ref.z-t.z); if(State.objPos) distEl.textContent=`${Math.round(d)} m`; if(State.mission.marker) State.mission.marker.children[0].rotation.y+=0.02; if(d<3.6) missionPhase(); }
 
@@ -693,6 +784,11 @@ function animate(now){ requestAnimationFrame(animate); let dt=(now-last)/1000; l
     checkMission(); updateCamera(dt); drawMinimap();
     const av=player.inCar; speedNum.textContent=av?Math.round(Math.abs(av.speed)*MPH):0;
     gearBox.textContent=av?(av.speed<-0.5?'REVERSE':av.speed<0.5?'NEUTRAL':'DRIVE'):'ON FOOT';
+    // headlights follow the player's car
+    if(av){ const f=av.forward; headlight.intensity=140;
+      headlight.position.set(av.pos.x+f.x*2.1, av.y+1.0, av.pos.z+f.z*2.1);
+      headlight.target.position.set(av.pos.x+f.x*18, 0.4, av.pos.z+f.z*18); }
+    else headlight.intensity=0;
   } else if(State.mode!=='load'){ cam.footYaw+=dt*0.12; cam.yaw=cam.footYaw; updateCamera(dt); }
   renderer.render(scene,camera);
 }
@@ -703,7 +799,7 @@ function animate(now){ requestAnimationFrame(animate); let dt=(now-last)/1000; l
 let playerCar=null;
 function startGame(){ Audio.init(); Audio.resume(); el('title').classList.add('hidden'); el('pause').classList.add('hidden'); el('hud').classList.remove('hidden');
   State.mode='play'; renderCash(); renderStars(); if(!State.mission) startMission(); }
-function pause(){ State.mode='pause'; el('pause').classList.remove('hidden'); Audio.engine(0,false); Audio.siren(false); }
+function pause(){ State.mode='pause'; el('pause').classList.remove('hidden'); Audio.engine(0,false); Audio.siren(false); Audio.screech(0); }
 function resume(){ State.mode='play'; el('pause').classList.add('hidden'); Audio.resume(); }
 function menuLoop(){ requestAnimationFrame(menuLoop); if(State.mode==='title'){ if(Input.confirm()) startGame(); } else if(State.mode==='pause'){ if(Input.start()) resume(); } }
 
@@ -731,7 +827,7 @@ Input.init();
 })();
 
 // debug hook for automated testing (harmless)
-window.__dbg={player,traffic,peds,State,coins,ramps,colliders,startGame,enterCar,exitCar,addWanted,PROTO,MANIFEST,CHAR_PROTO,Character,scene,camera,playerCarRef:()=>playerCar};
+window.__dbg={player,traffic,peds,parked,State,coins,ramps,colliders,startGame,enterCar,exitCar,addWanted,nearestCar,PROTO,MANIFEST,CHAR_PROTO,Character,scene,camera,cam,playerCarRef:()=>playerCar};
 </script>
 </body>
 </html>
