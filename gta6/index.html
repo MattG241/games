@@ -91,10 +91,10 @@
   <div class="press" id="pressStart">Press <span class="key">A</span> / <span class="key">Enter</span> to Drive</div>
   <div class="gp" id="gpStatus">🎮 Connect an Xbox controller and press <b>A</b> — or use keyboard</div>
   <div class="hint">
-    <b style="color:#fff">Controller:</b> Left stick steer · <b style="color:#fff">RT</b> gas · <b style="color:#fff">LT</b> brake · <b style="color:#fff">A</b> handbrake · <b style="color:#fff">Y</b> in/out · <b style="color:#fff">right stick</b> look<br>
+    <b style="color:#fff">GTA V controls:</b> <b style="color:#fff">RT</b> gas · <b style="color:#fff">LT</b> brake · <b style="color:#fff">RB</b> handbrake · <b style="color:#fff">Y</b> in/out · <b style="color:#fff">A</b> sprint · <b style="color:#fff">X</b> jump · <b style="color:#fff">L3</b> horn · <b style="color:#fff">D-pad</b> radio/lights · <b style="color:#fff">View</b> camera<br>
     <b style="color:#fff">Keyboard:</b>
     <span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> drive ·
-    <span class="key">Space</span> handbrake · <span class="key">F</span> in/out · <span class="key">Q</span><span class="key">E</span> look · <span class="key">Esc</span> pause
+    <span class="key">Space</span> handbrake/jump · <span class="key">F</span> in/out · <span class="key">G</span> horn · <span class="key">R</span> radio · <span class="key">H</span> lights · <span class="key">V</span> camera · <span class="key">Esc</span> pause
   </div>
   <div class="footer">Fan-made tribute · not affiliated with Rockstar Games</div>
 </div>
@@ -102,11 +102,17 @@
 <div id="pause" class="screen hidden">
   <div class="pauseTitle">PAUSED</div>
   <div id="controls"><table>
-    <tr><td>Left Stick / WASD</td><td>Drive &amp; steer</td></tr>
+    <tr><td>Left Stick / WASD</td><td>Drive &amp; steer · Move</td></tr>
     <tr><td>RT / W</td><td>Accelerate</td></tr>
     <tr><td>LT / S</td><td>Brake · Reverse</td></tr>
-    <tr><td>A / Space</td><td>Handbrake (drift)</td></tr>
+    <tr><td>RB / Space</td><td>Handbrake (drift)</td></tr>
     <tr><td>Y / F</td><td>Enter · Exit vehicle</td></tr>
+    <tr><td>A / Shift</td><td>Sprint (on foot)</td></tr>
+    <tr><td>X / Space</td><td>Jump (on foot)</td></tr>
+    <tr><td>L3 / G</td><td>Horn</td></tr>
+    <tr><td>D-Pad Left / R</td><td>Radio station</td></tr>
+    <tr><td>D-Pad Right / H</td><td>Headlights</td></tr>
+    <tr><td>View / V</td><td>Camera mode</td></tr>
     <tr><td>Right Stick / Q·E</td><td>Look around</td></tr>
     <tr><td>Start / Esc</td><td>Resume</td></tr>
   </table></div>
@@ -136,7 +142,10 @@ import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
    NEON DRIVE — GTA-style open-world sandbox (Three.js + GLB asset packs)
    Controller-first, TV-friendly.
    ========================================================================= */
-const CFG = { world:620, block:78, road:18, buildings:118, traffic:14, peds:20, coins:44, ramps:6, shadow:2048 };
+const LITE=new URLSearchParams(location.search).has('lite'); // tiny world for automated tests / weak GPUs
+const CFG = LITE
+  ? { world:240, block:78, road:18, buildings:10, traffic:6, peds:8, coins:12, ramps:2, shadow:1024 }
+  : { world:620, block:78, road:18, buildings:150, traffic:14, peds:20, coins:44, ramps:6, shadow:2048 };
 const MPH = 2.23694;
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
 const lerp=(a,b,t)=>a+(b-a)*t;
@@ -173,7 +182,12 @@ const Input = {
   brake(){ let b=this.tr(6); if(this.bt(6)) b=Math.max(b,1); if(this.keys['KeyS']||this.keys['ArrowDown']) b=1; return b; },
   steer(){ let s=this.ax(0); s=Math.sign(s)*s*s; // quadratic curve: fine control near center, full lock at edge
     if(this.keys['KeyA']||this.keys['ArrowLeft']) s-=1; if(this.keys['KeyD']||this.keys['ArrowRight']) s+=1; return clamp(s,-1,1); },
-  handbrake(){ return this.bt(0)||!!this.keys['Space']; },
+  handbrake(){ return this.bt(5)||!!this.keys['Space']; },          // GTA V: RB
+  jump(){ return this.btDown(2)||this.kDown('Space'); },            // GTA V: X
+  horn(){ return this.bt(10)||!!this.keys['KeyG']; },               // GTA V: L3
+  headlightToggle(){ return this.btDown(15)||this.kDown('KeyH'); }, // GTA V: D-pad right
+  radioCycle(){ return this.btDown(14)||this.kDown('KeyR'); },      // GTA V: D-pad left
+  camCycle(){ return this.btDown(8)||this.kDown('KeyV'); },         // GTA V: View button
   moveX(){ let x=this.ax(0); if(this.keys['KeyA']||this.keys['ArrowLeft']) x-=1; if(this.keys['KeyD']||this.keys['ArrowRight']) x+=1; return clamp(x,-1,1); },
   moveY(){ let y=this.ax(1); if(this.keys['KeyW']||this.keys['ArrowUp']) y-=1; if(this.keys['KeyS']||this.keys['ArrowDown']) y+=1; return clamp(y,-1,1); },
   sprint(){ return this.bt(0)||!!this.keys['ShiftLeft']||!!this.keys['ShiftRight']; },
@@ -214,6 +228,10 @@ const Audio = {
     this.on=true;
   },
   screech(amount){ if(!this.on) return; this.scGain.gain.setTargetAtTime(clamp(amount,0,0.22), this.ctx.currentTime, 0.08); },
+  horn(on){ if(!this.on) return;
+    if(on&&!this.hOsc){ this.hOsc=[440,554].map(f=>{ const o=this.ctx.createOscillator(),g=this.ctx.createGain();
+      o.type='square'; o.frequency.value=f; g.gain.value=0.06; o.connect(g); g.connect(this.master); o.start(); return {o,g}; }); }
+    else if(!on&&this.hOsc){ for(const h of this.hOsc){ h.g.gain.setTargetAtTime(0,this.ctx.currentTime,0.02); h.o.stop(this.ctx.currentTime+0.1); } this.hOsc=null; } },
   resume(){ if(this.ctx&&this.ctx.state==='suspended') this.ctx.resume(); },
   engine(r,on){ if(!this.on) return; const t=this.ctx.currentTime; this.eGain.gain.setTargetAtTime(on?1:0,t,0.1); this.eOsc.frequency.setTargetAtTime(55+r*150,t,0.05); },
   siren(on){ if(!this.on) return; this.sGain.gain.setTargetAtTime(on?1:0,this.ctx.currentTime,0.2);
@@ -225,6 +243,29 @@ const Audio = {
   thud(v=1){ if(!this.on) return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(),g=this.ctx.createGain();
     o.type='square'; o.frequency.setValueAtTime(120,t); o.frequency.exponentialRampToValueAtTime(40,t+0.2);
     g.gain.setValueAtTime(clamp(v*0.5,0,0.6),t); g.gain.exponentialRampToValueAtTime(0.001,t+0.3); o.connect(g); g.connect(this.master); o.start(); o.stop(t+0.3); },
+};
+// ---- Radio: tiny synth stations, cycled with D-pad left (GTA V style) ----
+const Radio={
+  station:0, names:['RADIO OFF','NEON FM','BASS 101'], timer:null, stepN:0,
+  cycle(){ this.station=(this.station+1)%this.names.length; this.apply(); return this.names[this.station]; },
+  apply(){ if(this.timer){ clearInterval(this.timer); this.timer=null; }
+    if(!Audio.on||this.station===0) return;
+    const bpm=this.station===1?110:126, stepMs=60000/bpm/2;
+    const scale=[0,3,5,7,10,12,15];
+    this.stepN=0;
+    this.timer=setInterval(()=>{
+      if(State.mode!=='play'){ return; } const s=this.stepN++;
+      if(this.station===1){ // NEON FM: minor arpeggio + soft bass
+        const root=110*Math.pow(2,(s>>4)%2===0?0:-2/12);
+        Audio.blip(root*Math.pow(2,scale[s%7]/12)*2,0.18,'sawtooth',0.045);
+        if(s%4===0) Audio.blip(root,0.3,'triangle',0.07);
+      } else { // BASS 101: kick + hat
+        if(s%4===0) Audio.thudSoft?Audio.thudSoft():Audio.blip(50,0.18,'sine',0.16);
+        if(s%2===1) Audio.blip(rand(6000,9000),0.03,'square',0.02);
+        if(s%8===6) Audio.blip(200,0.12,'square',0.05);
+      }
+    }, stepMs);
+  },
 };
 
 // =========================================================================
@@ -238,27 +279,27 @@ renderer.outputColorSpace=THREE.SRGBColorSpace; renderer.toneMapping=THREE.ACESF
 el('game').appendChild(renderer.domElement);
 
 const scene=new THREE.Scene();
-scene.fog=new THREE.Fog(0x2a1550,180,620);
+scene.fog=new THREE.Fog(0xc3d9ee,260,900);
 const camera=new THREE.PerspectiveCamera(64,innerWidth/innerHeight,0.5,2600);
 camera.position.set(0,12,-22);
 
 // sky dome
 const skyMat=new THREE.ShaderMaterial({ side:THREE.BackSide, depthWrite:false,
-  uniforms:{ top:{value:new THREE.Color(0x1a0b3a)}, horizon:{value:new THREE.Color(0xff6b6b)}, bottom:{value:new THREE.Color(0x2a1550)}, sunDir:{value:new THREE.Vector3(0.3,0.14,1).normalize()}, sunCol:{value:new THREE.Color(0xffe08a)} },
+  uniforms:{ top:{value:new THREE.Color(0x3f7fd0)}, horizon:{value:new THREE.Color(0xdcecf7)}, bottom:{value:new THREE.Color(0x8fa8c4)}, sunDir:{value:new THREE.Vector3(0.3,0.35,1).normalize()}, sunCol:{value:new THREE.Color(0xfff3cf)} },
   vertexShader:`varying vec3 v; void main(){ v=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} `,
   fragmentShader:`varying vec3 v; uniform vec3 top,horizon,bottom,sunDir,sunCol; void main(){ float h=v.y; vec3 c; if(h>0.0) c=mix(horizon,top,pow(clamp(h,0.0,1.0),0.55)); else c=mix(horizon,bottom,pow(clamp(-h,0.0,1.0),0.6)); float s=max(dot(v,normalize(sunDir)),0.0); c+=sunCol*pow(s,20.0)*0.9+sunCol*pow(s,3.0)*0.12; gl_FragColor=vec4(c,1.0);} ` });
 scene.add(new THREE.Mesh(new THREE.SphereGeometry(1800,32,16),skyMat));
 { const c=document.createElement('canvas'); c.width=c.height=256; const g=c.getContext('2d');
-  const gr=g.createRadialGradient(128,128,0,128,128,128); gr.addColorStop(0,'rgba(255,240,180,1)'); gr.addColorStop(.3,'rgba(255,180,120,.8)'); gr.addColorStop(1,'rgba(255,120,90,0)');
+  const gr=g.createRadialGradient(128,128,0,128,128,128); gr.addColorStop(0,'rgba(255,250,230,1)'); gr.addColorStop(.3,'rgba(255,240,200,.7)'); gr.addColorStop(1,'rgba(255,235,180,0)');
   g.fillStyle=gr; g.fillRect(0,0,256,256); const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));
-  sp.position.copy(new THREE.Vector3(0.3,0.14,1).normalize().multiplyScalar(1400)); sp.scale.set(500,500,1); scene.add(sp); }
+  sp.position.copy(new THREE.Vector3(0.3,0.35,1).normalize().multiplyScalar(1400)); sp.scale.set(360,360,1); scene.add(sp); }
 
-const hemi=new THREE.HemisphereLight(0xffc0d8,0x281840,0.75); scene.add(hemi);
-const sun=new THREE.DirectionalLight(0xffd9a0,1.4);
+const hemi=new THREE.HemisphereLight(0xbfd8ff,0x8a7a66,1.0); scene.add(hemi);
+const sun=new THREE.DirectionalLight(0xfff2d8,2.2);
 sun.castShadow=true; sun.shadow.mapSize.set(CFG.shadow,CFG.shadow); sun.shadow.camera.near=10; sun.shadow.camera.far=700;
 const SS=260; Object.assign(sun.shadow.camera,{left:-SS,right:SS,top:SS,bottom:-SS}); sun.shadow.bias=-0.0004;
 scene.add(sun); scene.add(sun.target);
-scene.add(new THREE.AmbientLight(0x442266,0.45));
+scene.add(new THREE.AmbientLight(0x9aa8bb,0.5));
 // headlights for the player's car (single spotlight, repositioned each frame)
 const headlight=new THREE.SpotLight(0xfff3d0, 0, 40, 0.42, 0.5, 1.2);
 scene.add(headlight); scene.add(headlight.target);
@@ -316,8 +357,10 @@ const PROTO={};
 // Rigged people (Quaternius Universal Base Characters, CC0) — loaded as-is (already Y-up, ~1.75m)
 const CHAR_FILES={ male:'char_male.glb', female:'char_female.glb' };
 const CHAR_PROTO={};
+// Downtown City MegaKit (Quaternius, CC0) — all 153 pieces merged into one GLB
+const KIT={}; let kitScene=null;
 async function loadAssets(onProgress){
-  const keys=Object.keys(MANIFEST); const total=keys.length+Object.keys(CHAR_FILES).length; let done=0;
+  const keys=Object.keys(MANIFEST); const total=keys.length+Object.keys(CHAR_FILES).length+3; let done=0;
   for(const k of keys){
     try{ const s=await loadGLB('./assets/'+MANIFEST[k].file); PROTO[k]=prepareModel(s,MANIFEST[k].fit); }
     catch(e){ console.warn('asset failed',k,e); PROTO[k]=null; }
@@ -330,7 +373,31 @@ async function loadAssets(onProgress){
     catch(e){ console.warn('character failed',k,e); CHAR_PROTO[k]=null; }
     done++; onProgress(done/total, k);
   }
+  onProgress(done/total,'downtown kit');
+  try{
+    kitScene=await loadGLB('./assets/downtown_kit.glb');
+    kitScene.updateMatrixWorld(true);
+    kitScene.traverse(o=>{ if(o.name&&o.name.startsWith('KIT_')) KIT[o.name.slice(4)]=o; });
+  }catch(e){ console.warn('downtown kit failed',e); }
+  done+=3; onProgress(1,'city ready');
 }
+// One InstancedMesh per (geometry,material) of a kit piece — thousands of copies, a couple of draw calls
+function instKit(name, matrices, opts={}){
+  const proto=KIT[name]; if(!proto||!matrices.length) return;
+  const rootInv=new THREE.Matrix4().copy(proto.matrixWorld).invert();
+  const parts=[]; proto.traverse(o=>{ if(o.isMesh) parts.push({geo:o.geometry, mat:o.material,
+    local:new THREE.Matrix4().multiplyMatrices(rootInv,o.matrixWorld)}); });
+  for(const p of parts){
+    const im=new THREE.InstancedMesh(p.geo,p.mat,matrices.length);
+    const m=new THREE.Matrix4();
+    for(let i=0;i<matrices.length;i++){ m.multiplyMatrices(matrices[i],p.local); im.setMatrixAt(i,m); }
+    im.castShadow=!!opts.castShadow; im.receiveShadow=true; im.instanceMatrix.needsUpdate=true;
+    im.frustumCulled=false; // instances span the whole map; per-mesh culling would pop
+    world.add(im);
+  }
+}
+const M4=(x,y,z,ry=0,sx=1,sy=1,sz=1)=>new THREE.Matrix4().compose(
+  new THREE.Vector3(x,y,z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0,ry,0)), new THREE.Vector3(sx,sy,sz));
 
 // ---- Rigged character instance with procedural walk cycle ----
 const SKIN_TONES=[0xffffff,0xf2c9a0,0xd9a878,0xb07d52,0x8a5a38];
@@ -400,60 +467,149 @@ function makeRoadTex(){ const S=256,c=document.createElement('canvas'); c.width=
   g.fillStyle='rgba(255,255,255,.45)'; g.fillRect(8,0,4,S); g.fillRect(S-12,0,4,S);
   const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; t.wrapS=t.wrapT=THREE.RepeatWrapping; return t; }
 
+// Modular tower styles assembled from MegaKit wall panels (2m wide × 1m tall)
+const TOWER_STYLES=[
+  { wall:'Brick_Plain_1', win:'Brick_Inset_Window', first:'Brick_RedWhite_DoubleWindow', cornice:'Cornice_Brick_Center', roof:'Roof_2x2' },
+  { wall:'Brick_Plain_3', win:'Brick_Window_Square_Single', first:'Brick_Inset_Window_Curved', cornice:'Cornice_Brick_Center', roof:'Roof_2x2' },
+  { wall:'Metal_Plain_1', win:'Metal_Window', first:'Metal_FirstFloor_Window', cornice:'Cornice_Metal_Center', roof:'Roof_4x4' },
+  { wall:'Metal_Plain_3', win:'Metal_FullWindow', first:'Metal_FirstFloor_Wall', cornice:'Cornice_Metal_Center', roof:'Roof_4x4' },
+  { wall:'Trim_Plain_3', win:'Trim_Window', first:'Trim_FirstFloor_Window_Columns', cornice:'Cornice_Trim_Center', roof:'Roof_2x2' },
+];
+const KIT_BUILDINGS=[
+  { name:'Building_Large_2',      hw:10.4, hd:8.4 },
+  { name:'Building_Medium_2_001', hw:7.6,  hd:6.6 },
+  { name:'Building_Small_1',      hw:6.3,  hd:7.3 },
+];
 function buildWorld(){
-  // ground
-  const g0=new THREE.Mesh(new THREE.PlaneGeometry(W*3,W*3), new THREE.MeshStandardMaterial({color:0x20351f,roughness:1}));
-  g0.rotation.x=-Math.PI/2; g0.position.y=-0.06; g0.receiveShadow=true; world.add(g0);
-  const g1=new THREE.Mesh(new THREE.PlaneGeometry(W*2,W*2), new THREE.MeshStandardMaterial({color:0x2b2735,roughness:.95}));
-  g1.rotation.x=-Math.PI/2; g1.receiveShadow=true; world.add(g1);
-  // roads
-  const rt=makeRoadTex();
-  const mH=new THREE.MeshStandardMaterial({map:rt.clone(),roughness:.8}); mH.map.repeat.set(W*2/8,CFG.road/8);
-  const mV=new THREE.MeshStandardMaterial({map:rt.clone(),roughness:.8}); mV.map.repeat.set(CFG.road/8,W*2/8);
+  // base ground fills gaps between kit tiles and block interiors
+  const g0=new THREE.Mesh(new THREE.PlaneGeometry(W*3,W*3), new THREE.MeshStandardMaterial({color:0x55663f,roughness:1}));
+  g0.rotation.x=-Math.PI/2; g0.position.y=-0.35; g0.receiveShadow=true; world.add(g0);
+  const g1=new THREE.Mesh(new THREE.PlaneGeometry(W*2,W*2), new THREE.MeshStandardMaterial({color:0x4a4a52,roughness:.95}));
+  g1.rotation.x=-Math.PI/2; g1.position.y=-0.02; g1.receiveShadow=true; world.add(g1);
   const coords=[]; const n=Math.floor((W*2)/step);
   for(let i=-n/2;i<=n/2;i++) coords.push(i*step);
-  for(const c of coords){
-    const h=new THREE.Mesh(new THREE.PlaneGeometry(W*2,CFG.road),mH); h.rotation.x=-Math.PI/2; h.position.set(0,0.02,c); h.receiveShadow=true; world.add(h); roadLines.push({dir:'h',z:c});
-    const v=new THREE.Mesh(new THREE.PlaneGeometry(CFG.road,W*2),mV); v.rotation.x=-Math.PI/2; v.position.set(c,0.02,0); v.receiveShadow=true; world.add(v); roadLines.push({dir:'v',x:c});
-  }
+  for(const c of coords){ roadLines.push({dir:'h',z:c}); roadLines.push({dir:'v',x:c}); }
   window.__coords=coords;
-  // buildings — one per block, evenly distributed, kept off the spawn block
+  const HAS_KIT=!!KIT.Street_4Lane;
+  // ---------- STREETS from the MegaKit ----------
+  if(HAS_KIT){
+    const inter=[], seg=[], arrows=[];
+    const IH=12.33;                     // intersection half-extent (includes sidewalk corners)
+    for(const c of coords) for(const d of coords) inter.push(M4(c,0,d));
+    for(const line of roadLines){
+      for(let i=0;i<coords.length-1;i++){
+        const a=coords[i]+IH, b=coords[i+1]-IH, len=b-a; if(len<=0) continue;
+        const nSeg=Math.max(1,Math.round(len/6)), sx=len/(nSeg*6);
+        for(let k=0;k<nSeg;k++){
+          const t=a+(k+0.5)*6*sx;
+          if(line.dir==='h') seg.push(M4(t,0,line.z,0,sx,1,1));
+          else               seg.push(M4(line.x,0,t,Math.PI/2,sx,1,1));
+          if(k===2&&Math.random()<0.3){ // occasional lane arrows
+            if(line.dir==='h') arrows.push(M4(t,0.02,line.z-4.5,Math.PI/2));
+            else               arrows.push(M4(line.x-4.5,0.02,t,0));
+          }
+        }
+      }
+    }
+    instKit('Street_4WayIntersection',inter);
+    instKit('Street_4Lane',seg);
+    instKit('Decal_ArrowStraight',arrows);
+  }
+  // ---------- BLOCKS: sidewalk rings + buildings ----------
   const blocks=[];
   for(let i=0;i<coords.length-1;i++) for(let j=0;j<coords.length-1;j++){
     const cx=(coords[i]+coords[i+1])/2, cz=(coords[j]+coords[j+1])/2;
     if(Math.abs(cx)>W-40||Math.abs(cz)>W-40) continue;
-    if(Math.abs(cx)<step*0.55 && Math.abs(cz)<step*0.55) continue; // keep only spawn block clear
-    blocks.push({cx,cz});
+    blocks.push({cx,cz}); // buildings sit inside blocks — roads stay clear, so build everywhere
   }
-  for(let i=blocks.length-1;i>0;i--){ const j=randi(0,i); [blocks[i],blocks[j]]=[blocks[j],blocks[i]]; } // shuffle
+  for(let i=blocks.length-1;i>0;i--){ const j=randi(0,i); [blocks[i],blocks[j]]=[blocks[j],blocks[i]]; }
+  // sidewalk ring around every block (incl. spawn block)
+  if(HAS_KIT){
+    const walk=[], bollards=[], planters=[], manholes=[];
+    const allBlocks=[];
+    for(let i=0;i<coords.length-1;i++) for(let j=0;j<coords.length-1;j++){
+      const cx=(coords[i]+coords[i+1])/2, cz=(coords[j]+coords[j+1])/2;
+      if(Math.abs(cx)>W-40||Math.abs(cz)>W-40) continue; allBlocks.push({cx,cz});
+    }
+    const half=CFG.block/2;
+    for(const b of allBlocks){
+      const edge=half-1.5;                    // sidewalk band center, 3m tiles
+      const nT=Math.floor((CFG.block-8)/3);   // skip corners (intersection tile covers them)
+      for(let k=0;k<nT;k++){
+        const off=-(nT-1)*1.5+k*3;
+        walk.push(M4(b.cx+off,0.02,b.cz-edge)); walk.push(M4(b.cx+off,0.02,b.cz+edge));
+        walk.push(M4(b.cx-edge,0.02,b.cz+off)); walk.push(M4(b.cx+edge,0.02,b.cz+off));
+      }
+      if(Math.random()<0.5) planters.push(M4(b.cx+rand(-half+4,half-4),0.02,b.cz-edge,rand(0,TAU)));
+      if(Math.random()<0.4) manholes.push(M4(b.cx+rand(-20,20),0.03,b.cz+rand(-20,20)));
+      if(Math.random()<0.5){ const s=Math.random()<0.5?1:-1;
+        for(let k=0;k<4;k++) bollards.push(M4(b.cx-4.5+k*3,0.02,b.cz+s*edge)); }
+    }
+    instKit('Sidewalk_Straight_3m',walk);
+    instKit('Prop_Bollard',bollards,{castShadow:true});
+    instKit('Sidewalk_Planter',planters,{castShadow:true});
+    instKit('Prop_ManholeCover',manholes);
+  }
+  // buildings: mix of the kit's complete buildings and towers assembled from wall modules
+  const bldMats={}; KIT_BUILDINGS.forEach(b=>bldMats[b.name]=[]);
+  const towerMats={}; const roofMats={}; const acMats=[];
   let placed=0;
   for(const bl of blocks){
     if(placed>=CFG.buildings) break;
-    { const cx=bl.cx, cz=bl.cz;
-      const key=pick(BUILDING_KEYS); const m=inst(key);
-      // random height variation by rescaling uniformly
-      const scl=rand(0.8,1.5); m.scale.multiplyScalar(scl);
-      const d=m.userData.dim; const hw=d.x*scl/2, hd=d.z*scl/2;
-      // ensure it fits inside the block footprint
-      const maxHalf=(CFG.block/2)-3;
-      const fit=Math.min(1, maxHalf/Math.max(hw,hd));
-      m.scale.multiplyScalar(fit);
-      const fhw=hw*fit, fhd=hd*fit;
-      m.position.set(cx,0,cz); m.rotation.y=pick([0,Math.PI/2,Math.PI,-Math.PI/2]);
-      // rotation swaps footprint for colliders
-      const rot=Math.abs(Math.round(m.rotation.y/(Math.PI/2)))%2===1;
-      world.add(m);
-      colliders.push({x:cx,z:cz,hw:rot?fhd:fhw,hd:rot?fhw:fhd});
-      placed++;
+    const cx=bl.cx, cz=bl.cz;
+    if(HAS_KIT && Math.random()<0.45){
+      // pre-assembled building from the kit, scale-varied
+      const kb=pick(KIT_BUILDINGS); const s=rand(0.9,1.6), ry=pick([0,Math.PI/2,Math.PI,-Math.PI/2]);
+      bldMats[kb.name].push(M4(cx,0,cz,ry,s,s,s));
+      const rot=Math.abs(Math.round(ry/(Math.PI/2)))%2===1;
+      colliders.push({x:cx,z:cz,hw:(rot?kb.hd:kb.hw)*s+0.5,hd:(rot?kb.hw:kb.hd)*s+0.5});
+    } else if(HAS_KIT){
+      // modular tower: ring of 2×1m panels, window rows, cornice cap, tiled roof
+      const st=pick(TOWER_STYLES);
+      const wP=randi(5,9), dP=randi(5,9);            // panels per side
+      const wHalf=wP, dHalf=dP;                       // meters (panels are 2m wide)
+      const rows=randi(10,34);
+      towerMats[st.wall]=towerMats[st.wall]||[]; towerMats[st.win]=towerMats[st.win]||[]; towerMats[st.first]=towerMats[st.first]||[]; towerMats[st.cornice]=towerMats[st.cornice]||[];
+      for(let r=0;r<rows;r++){
+        const y=r, kind=r===0?st.first:(r%3===1?st.win:st.wall);
+        const arr=towerMats[kind];
+        for(let k=0;k<wP;k++){ const x=cx-wHalf+1+k*2;
+          arr.push(M4(x,y,cz-dHalf,0));            // front face (+Z outward)
+          arr.push(M4(x,y,cz+dHalf,Math.PI)); }    // back
+        for(let k=0;k<dP;k++){ const z=cz-dHalf+1+k*2;
+          arr.push(M4(cx-wHalf,y,z,Math.PI/2));    // left
+          arr.push(M4(cx+wHalf,y,z,-Math.PI/2)); } // right
+      }
+      // cornice cap on each side
+      for(let k=0;k<wP;k++){ const x=cx-wHalf+1+k*2;
+        towerMats[st.cornice].push(M4(x,rows,cz-dHalf,0)); towerMats[st.cornice].push(M4(x,rows,cz+dHalf,Math.PI)); }
+      for(let k=0;k<dP;k++){ const z=cz-dHalf+1+k*2;
+        towerMats[st.cornice].push(M4(cx-wHalf,rows,z,Math.PI/2)); towerMats[st.cornice].push(M4(cx+wHalf,rows,z,-Math.PI/2)); }
+      // roof tiles + AC units
+      roofMats[st.roof]=roofMats[st.roof]||[];
+      const rs=st.roof==='Roof_4x4'?4:2;
+      for(let rx=-wHalf+rs/2; rx<=wHalf-rs/2+0.01; rx+=rs) for(let rz=-dHalf+rs/2; rz<=dHalf-rs/2+0.01; rz+=rs)
+        roofMats[st.roof].push(M4(cx+rx,rows,cz+rz));
+      if(Math.random()<0.6) acMats.push(M4(cx+rand(-2,2),rows,cz+rand(-2,2),rand(0,TAU)));
+      colliders.push({x:cx,z:cz,hw:wHalf+0.3,hd:dHalf+0.3});
+    } else {
+      // fallback (kit missing): old GLB buildings
+      const key=pick(BUILDING_KEYS); const m=inst(key); const scl=rand(0.8,1.5); m.scale.multiplyScalar(scl);
+      const d=m.userData.dim; m.position.set(cx,0,cz); world.add(m);
+      colliders.push({x:cx,z:cz,hw:d.x*scl/2,hd:d.z*scl/2});
     }
+    placed++;
   }
-  // palms + lamps along road corners
+  for(const [name,mats] of Object.entries(bldMats)) instKit(name,mats,{castShadow:true});
+  for(const [name,mats] of Object.entries(towerMats)) instKit(name,mats);
+  for(const [name,mats] of Object.entries(roofMats)) instKit(name,mats);
+  instKit('Prop_ACUnit',acMats);
+  // palms + lamps along road corners (Miami flavor from the 100-pack)
   let props=0;
   for(const c of coords){ for(const d of coords){
     if(Math.abs(c)>W-30||Math.abs(d)>W-30) continue;
-    const cornerX=c+CFG.road*0.75, cornerZ=d+CFG.road*0.75;
-    if(Math.random()<0.5){ const p=inst(Math.random()<0.6?'palm_tall':'palm_short'); p.position.set(cornerX,0,cornerZ); p.rotation.y=rand(0,TAU); world.add(p); }
-    if(Math.random()<0.4 && props<70){ const l=inst('lamp'); l.position.set(c-CFG.road*0.75,0,d-CFG.road*0.75); l.rotation.y=rand(0,TAU); world.add(l); props++; }
+    if(Math.random()<0.5){ const p=inst(Math.random()<0.6?'palm_tall':'palm_short'); p.position.set(c+14,0,d+14); p.rotation.y=rand(0,TAU); world.add(p); }
+    if(Math.random()<0.4 && props<70){ const l=inst('lamp'); l.position.set(c-14,0,d-14); l.rotation.y=rand(0,TAU); world.add(l); props++; }
   }}
   // ramps on some roads
   for(let i=0;i<CFG.ramps;i++){ const r=inst('ramp'); const line=pick(roadLines);
@@ -593,7 +749,7 @@ function spawnCoins(){ const coords=window.__coords||[0]; for(let i=0;i<CFG.coin
 // =========================================================================
 //  STATE / WANTED / POLICE
 // =========================================================================
-const State={ cash:0, wanted:0, wtimer:0, police:[], mode:'load', mission:null, objPos:null };
+const State={ cash:0, wanted:0, wtimer:0, police:[], mode:'load', mission:null, objPos:null, lightsOn:true };
 function setWanted(n){ n=clamp(n,0,5); if(n>State.wanted) Audio.blip(300,0.2,'square',0.3); State.wanted=n; State.wtimer=n>0?16:0; renderStars(); while(State.police.length<n) spawnPolice(); }
 function addWanted(a=1){ setWanted(State.wanted+a); State.wtimer=Math.max(State.wtimer,12); }
 function spawnPolice(){ const ref=player.inCar?player.inCar.pos:player.pos; const a=rand(0,TAU),d=rand(90,150);
@@ -623,22 +779,34 @@ function missionPhase(){ const m=State.mission; if(m.phase==='pickup'){ m.phase=
 // =========================================================================
 //  CAMERA  (chase cam, auto-behind, TV-friendly)
 // =========================================================================
-const cam={ yaw:0, footYaw:0, pitch:0.32, manual:0, look:new THREE.Vector3(), dist:11, shake:0 };
+// GTA-style chase cam: low and close behind the character, View button cycles distance
+const CAM_MODES=[
+  { name:'NEAR', carD:8.5,  carH:2.9, footD:3.6, footH:1.9 },
+  { name:'MID',  carD:12,   carH:4.0, footD:5.2, footH:2.6 },
+  { name:'FAR',  carD:16,   carH:5.6, footD:7.5, footH:3.6 },
+];
+const cam={ yaw:0, footYaw:0, pitch:0.18, manual:0, look:new THREE.Vector3(), shake:0, mode:0 };
 function updateCamera(dt){
   const av=player.inCar; const focus=(av?av.pos:player.pos);
-  const focusY=(av?av.y:0);
+  const focusY=(av?av.y:(player.y||0));
+  const mode=CAM_MODES[cam.mode];
   const mx=Input.camX(), my=Input.camY();
   if(av){ // recenter behind car; right stick nudges temporarily
     cam.manual=lerp(cam.manual,0,dt*2.2)-mx*dt*2.5;
-    cam.pitch=clamp(cam.pitch-my*dt*1.2,0.12,0.85);
+    cam.pitch=clamp(cam.pitch-my*dt*1.2,0.02,0.85);
     cam.yaw=av.heading+cam.manual;
-  } else { // free orbit on foot
-    cam.footYaw-=mx*dt*2.5; cam.pitch=clamp(cam.pitch-my*dt*1.2,0.12,0.85); cam.yaw=cam.footYaw;
+  } else { // free orbit on foot, gently settles behind the character while moving
+    cam.footYaw-=mx*dt*2.5; cam.pitch=clamp(cam.pitch-my*dt*1.2,0.02,0.85);
+    if(player.speed>0.5&&Math.abs(mx)<0.05){
+      let dy=player.heading-cam.footYaw; while(dy>Math.PI)dy-=TAU; while(dy<-Math.PI)dy+=TAU;
+      cam.footYaw+=dy*clamp(dt*1.2,0,1);
+    }
+    cam.yaw=cam.footYaw;
   }
   const fwd=new THREE.Vector3(Math.sin(cam.yaw),0,Math.cos(cam.yaw));
   const spK=av?clamp(Math.abs(av.speed)/45,0,1):0;
-  const dist=(av?cam.dist:6.5)+spK*3;
-  const height=(av?4.4:3.2)+cam.pitch*6;
+  const dist=(av?mode.carD:mode.footD)+spK*3;
+  const height=(av?mode.carH:mode.footH)+cam.pitch*4.5;
   let desired=new THREE.Vector3(focus.x-fwd.x*dist, focus.y+focusY+height, focus.z-fwd.z*dist);
   if(desired.y<1.2) desired.y=1.2;
   // building occlusion: if a tower blocks the view, pull the camera in front of it
@@ -649,9 +817,10 @@ function updateCamera(dt){
   camera.position.lerp(desired,clamp(dt*(av?7:9),0,1));
   // impact shake
   if(cam.shake>0.001){ camera.position.x+=rand(-1,1)*cam.shake*0.5; camera.position.y+=rand(-1,1)*cam.shake*0.35; camera.position.z+=rand(-1,1)*cam.shake*0.5; cam.shake*=Math.exp(-dt*6); } else cam.shake=0;
-  const look=new THREE.Vector3(focus.x+fwd.x*(av?5:2), focus.y+focusY+(av?1.4:1.6), focus.z+fwd.z*(av?5:2));
+  // look well ahead so the character sits low-center in frame, GTA-style
+  const look=new THREE.Vector3(focus.x+fwd.x*(av?6:6), focus.y+focusY+(av?1.3:1.55), focus.z+fwd.z*(av?6:6));
   cam.look.lerp(look,clamp(dt*8,0,1)); camera.lookAt(cam.look);
-  const fov=64+spK*13; camera.fov=lerp(camera.fov,fov,dt*3); camera.updateProjectionMatrix();
+  const fov=(av?62:58)+spK*13; camera.fov=lerp(camera.fov,fov,dt*3); camera.updateProjectionMatrix();
   sun.target.position.set(focus.x,0,focus.z); sun.position.set(focus.x+120,220,focus.z+80);
 }
 
@@ -735,7 +904,11 @@ function updateFoot(dt){
       if(!blocked(nx,nz,0.6)){ player.pos.x=clamp(nx,-W+4,W-4); player.pos.z=clamp(nz,-W+4,W-4); } legPhase+=dt*(sprint?16:10); }
     player.speed=spd*mag;
   } else player.speed=0;
-  player.mesh.position.copy(player.pos); player.mesh.rotation.y=player.heading;
+  // jump (GTA V: X button)
+  if(Input.jump()&&player.y<=0.01){ player.vy=5.4; rumble(0.1,0.2,80); }
+  player.vy=(player.vy||0)-16*dt; player.y=Math.max(0,(player.y||0)+player.vy*dt);
+  if(player.y===0&&player.vy<0) player.vy=0;
+  player.mesh.position.copy(player.pos); player.mesh.position.y=player.y; player.mesh.rotation.y=player.heading;
   if(player.char) player.char.walk(legPhase, player.speed>0.1?clamp(player.speed/7.5,0.45,1):0);
   const c=nearestCar(6.0); if(c){ showPrompt('Enter vehicle'); if(Input.interact()) enterCar(c); } else hidePrompt();
   Audio.engine(0,false);
@@ -775,6 +948,14 @@ function animate(now){ requestAnimationFrame(animate); let dt=(now-last)/1000; l
   if(State.mode==='play'){
     if(bustCd>0) bustCd-=dt;
     if(Input.start()) pause();
+    // GTA V extras: camera mode (View), radio (D-pad left), headlights (D-pad right), horn (L3)
+    if(Input.camCycle()){ cam.mode=(cam.mode+1)%CAM_MODES.length; toast('📷 Camera: '+CAM_MODES[cam.mode].name,1000); }
+    if(Input.radioCycle()){ toast('📻 '+Radio.cycle(),1400); Audio.blip(1200,0.05,'sine',0.15); }
+    if(player.inCar){
+      if(Input.headlightToggle()){ State.lightsOn=!State.lightsOn; toast('💡 Headlights '+(State.lightsOn?'on':'off'),900); }
+      Audio.horn(Input.horn());
+      if(Input.horn()){ for(const p of peds){ if(p.pos.distanceTo(player.inCar.pos)<10&&!p.down) p.panic=Math.max(p.panic||0,0.8); } }
+    } else Audio.horn(false);
     if(player.inCar) updateDrive(dt); else updateFoot(dt);
     for(const c of traffic) updTraffic(c,dt);
     for(const p of peds) updPed(p,dt);
@@ -784,8 +965,8 @@ function animate(now){ requestAnimationFrame(animate); let dt=(now-last)/1000; l
     checkMission(); updateCamera(dt); drawMinimap();
     const av=player.inCar; speedNum.textContent=av?Math.round(Math.abs(av.speed)*MPH):0;
     gearBox.textContent=av?(av.speed<-0.5?'REVERSE':av.speed<0.5?'NEUTRAL':'DRIVE'):'ON FOOT';
-    // headlights follow the player's car
-    if(av){ const f=av.forward; headlight.intensity=140;
+    // headlights follow the player's car (D-pad right toggles)
+    if(av&&State.lightsOn!==false){ const f=av.forward; headlight.intensity=140;
       headlight.position.set(av.pos.x+f.x*2.1, av.y+1.0, av.pos.z+f.z*2.1);
       headlight.target.position.set(av.pos.x+f.x*18, 0.4, av.pos.z+f.z*18); }
     else headlight.intensity=0;
@@ -797,9 +978,19 @@ function animate(now){ requestAnimationFrame(animate); let dt=(now-last)/1000; l
 //  FLOW
 // =========================================================================
 let playerCar=null;
-function startGame(){ Audio.init(); Audio.resume(); el('title').classList.add('hidden'); el('pause').classList.add('hidden'); el('hud').classList.remove('hidden');
+// Title-screen music (user's MP3 at assets/title_theme.mp3; silently absent-safe)
+const titleMusic=new window.Audio('./assets/title_theme.mp3');
+titleMusic.loop=true; titleMusic.volume=0.55; titleMusic.preload='auto';
+let musicWanted=false, musicFade=null;
+function tryTitleMusic(){ if(!musicWanted) return; titleMusic.play().catch(()=>{}); }
+function stopTitleMusic(){ musicWanted=false; clearInterval(musicFade);
+  musicFade=setInterval(()=>{ titleMusic.volume=Math.max(0,titleMusic.volume-0.06);
+    if(titleMusic.volume<=0){ titleMusic.pause(); titleMusic.volume=0.55; clearInterval(musicFade); } },80); }
+addEventListener('keydown',tryTitleMusic,{once:false});
+addEventListener('pointerdown',tryTitleMusic,{once:false});
+function startGame(){ Audio.init(); Audio.resume(); stopTitleMusic(); el('title').classList.add('hidden'); el('pause').classList.add('hidden'); el('hud').classList.remove('hidden');
   State.mode='play'; renderCash(); renderStars(); if(!State.mission) startMission(); }
-function pause(){ State.mode='pause'; el('pause').classList.remove('hidden'); Audio.engine(0,false); Audio.siren(false); Audio.screech(0); }
+function pause(){ State.mode='pause'; el('pause').classList.remove('hidden'); Audio.engine(0,false); Audio.siren(false); Audio.screech(0); Audio.horn(false); }
 function resume(){ State.mode='play'; el('pause').classList.add('hidden'); Audio.resume(); }
 function menuLoop(){ requestAnimationFrame(menuLoop); if(State.mode==='title'){ if(Input.confirm()) startGame(); } else if(State.mode==='pause'){ if(Input.start()) resume(); } }
 
@@ -823,11 +1014,12 @@ Input.init();
   player.inCar=playerCar; player.mesh.visible=false;
   cam.yaw=0; camera.position.set(0,12,-22);
   State.mode='title'; el('title').classList.remove('hidden'); el('loading').style.display='none';
+  musicWanted=true; tryTitleMusic(); // starts on first input if autoplay is blocked
   menuLoop(); requestAnimationFrame(animate);
 })();
 
 // debug hook for automated testing (harmless)
-window.__dbg={player,traffic,peds,parked,State,coins,ramps,colliders,startGame,enterCar,exitCar,addWanted,nearestCar,PROTO,MANIFEST,CHAR_PROTO,Character,scene,camera,cam,playerCarRef:()=>playerCar};
+window.__dbg={player,traffic,peds,parked,State,coins,ramps,colliders,startGame,enterCar,exitCar,addWanted,nearestCar,PROTO,MANIFEST,CHAR_PROTO,Character,KIT,Radio,CAM_MODES,cam,scene,camera,playerCarRef:()=>playerCar};
 </script>
 </body>
 </html>

@@ -36,15 +36,22 @@ modern browser, including the **Xbox console's Microsoft Edge** browser. Press *
 
 ## 🎮 Controls
 
+Controls follow the **official GTA V Xbox layout**:
+
 | Xbox | Keyboard | Action |
 |------|----------|--------|
-| **Left Stick** | `A` `D` / `W` `S` | Steer · drive |
+| **Left Stick** | `A` `D` / `W` `S` | Steer · move |
 | **RT** | `W` / `↑` | Accelerate |
 | **LT** | `S` / `↓` | Brake · Reverse |
-| **A** | `Space` | Handbrake (drift!) |
+| **RB** | `Space` (in car) | Handbrake (drift!) |
 | **Y** | `F` | Enter / exit vehicle |
+| **A** | `Shift` | Sprint (on foot) |
+| **X** | `Space` (on foot) | Jump |
+| **L3** (click stick) | `G` | Horn |
+| **D-Pad Left** | `R` | Cycle radio station |
+| **D-Pad Right** | `H` | Headlights on/off |
+| **View** | `V` | Camera mode (near/mid/far) |
 | **Right Stick** | `Q` `E` / drag mouse | Look around |
-| **A / Enter** | | Confirm on menus |
 | **Start** | `Esc` | Pause |
 
 The chase camera automatically swings behind the car as you drive, so "forward" is always up the
@@ -56,8 +63,9 @@ Cars you leave stay parked (green dot on the minimap) — walk back and press **
 
 ## 🌆 What's in the world
 
-- **Neon sunset city** — a grid of real 3D buildings (apartments, offices, brick shops, a nightclub,
-  warehouses), palm trees and street lamps, lane-marked roads, under a sunset-sky shader.
+- **Downtown city in daylight** — real street/intersection/sidewalk tiles from the Downtown City
+  MegaKit, brick and metal towers assembled from its modular panels, palms and street lamps, under
+  a bright GTA-style day sky.
 - **You start in a car** on a central road — straight into the action, no wandering.
 - **Arcade driving** — punchy acceleration, reverse, speed-sensitive steering, and handbrake
   **drifting**. Cars collide with buildings. Hit a **jump ramp** at speed to catch air.
@@ -78,6 +86,12 @@ Cars you leave stay parked (green dot on the minimap) — walk back and press **
 - 3D assets are the included GTA-style `.glb` packs, extracted into `assets/` (110 models; ~25 are
   loaded and used at runtime). Models are authored Z-up and normalized at load (converted to Y-up,
   scaled to real-world sizes, dropped to the ground) via their runtime bounding box.
+- **The city** is built from the *Downtown City MegaKit* by [Quaternius](https://quaternius.com)
+  (**CC0**, from the repo's `assetsv2` release): all 153 pieces are merged into one optimized
+  `downtown_kit.glb` (~10 MB, shared texture atlas, wear-mask vertex colors stripped). Streets,
+  intersections and sidewalks are the kit's real tiles; buildings are a mix of the kit's complete
+  buildings and towers procedurally assembled from its modular wall/window/cornice/roof panels —
+  everything drawn with `InstancedMesh`, so the whole city costs only a handful of draw calls.
 - **People** are rigged humanoids from the *Universal Base Characters* kit by
   [Quaternius](https://quaternius.com) (**CC0 / public domain**, from the repo's `assets-v1`
   release), repacked into compact GLBs (`char_male.glb`, `char_female.glb`, ~1.2 MB each with
@@ -100,6 +114,10 @@ gta6/
 ```
 
 ---
+
+### Title music
+Drop an MP3 at `gta6/assets/title_theme.mp3` and it plays on the title screen automatically
+(fades out when the game starts). If the file is missing the game is silent — no error.
 
 ## ⚖️ Disclaimer
 
