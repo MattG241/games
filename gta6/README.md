@@ -118,6 +118,18 @@ gta6/
 
 ---
 
+### Time of day & lighting
+Five moods (Morning / Midday / Sunset / Night / Storm) cycle automatically, or pick one in
+**Settings → Display → Time of Day**. The sun moves (shadows follow it), the sky, fog, ambient,
+exposure and a colour grade all shift per mood; stars and a moon come out at night; roads turn wet
+and reflective in the storm/night. Neon signs, rooftop billboards and lit windows glow after dark.
+
+### Vehicles
+Cars are the 10-model **generic passenger pack** (`assets/carpack.glb`, from the `car` release),
+extracted at load (body + 4 wheels + lights). Wheels roll and steer; headlights, tail lights,
+brake lights (on braking), reverse lights (in reverse) and police flashers all work. Drifting kicks
+up **tyre smoke** and leaves **skid marks**; crashes throw **sparks**.
+
 ### Menu icons
 The home/settings menus use optional icon PNGs in `assets/icons/` — see
 [`assets/icons/README.md`](./assets/icons/README.md) for the exact filenames and style.
