@@ -52,7 +52,10 @@ Controls follow the **official GTA V Xbox layout**:
 | **D-Pad Right** | `H` | Headlights on/off |
 | **View** | `V` | Camera mode (near/mid/far) |
 | **Right Stick** | `Q` `E` / drag mouse | Look around |
-| **Start** | `Esc` | Pause |
+| **Start** | `Esc` | Pause / Settings |
+
+On the menus: **D-pad / left stick** move, **A / Enter** select, **←→** change a setting,
+**LB/RB** switch category, **B / Esc** back.
 
 The chase camera automatically swings behind the car as you drive, so "forward" is always up the
 screen — steering feels natural on a controller. The stick uses a quadratic response curve for
@@ -115,9 +118,22 @@ gta6/
 
 ---
 
-### Title music
-Drop an MP3 at `gta6/assets/title_theme.mp3` and it plays on the title screen automatically
-(fades out when the game starts). If the file is missing the game is silent — no error.
+### Front end
+- **Loading screens** — 8 hand-picked neon artworks (`assets/loading/*.webp`) rotate at random each
+  load, with a **live** progress bar tied to real asset loading and rotating gameplay tips.
+- **Home menu** — Continue / New Game / Missions / Settings / Controls / Fullscreen, a player card
+  (cash + rank + XP), and a news bar. Fully navigable by controller (D-pad/stick + A) or keyboard.
+- **Pause + Settings** — categories (Gameplay / Display / Graphics / Audio / Controls) with working
+  toggles and steppers that actually change the game and persist to `localStorage`:
+  units (MPH/KMH), auto-center camera, invert look, minimap on/off, difficulty, default camera
+  distance, shadow quality, draw distance, master/music/SFX volumes, vibration, steering & look
+  sensitivity. Open with **Start/Esc**.
+- **Fullscreen** — defaults on for the Xbox browser and can be toggled in Display; the game enters
+  fullscreen on the first button press (browsers require a user gesture).
+
+### Title / loading music
+Plays `gta6/assets/title_theme.mp3` on the loading and home screens (loops, fades out when you start
+driving). If the file is missing the game is silent — no error.
 
 ## ⚖️ Disclaimer
 

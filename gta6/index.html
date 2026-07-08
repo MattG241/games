@@ -45,32 +45,87 @@
     box-shadow:0 8px 30px rgba(0,0,0,.5); text-align:center; pointer-events:none; }
   #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
   #toast b { color:var(--yellow); }
-  .screen { position:fixed; inset:0; z-index:40; display:flex; flex-direction:column; align-items:center; justify-content:center;
-    background:radial-gradient(120% 100% at 50% 0%, rgba(255,45,149,.22), rgba(5,1,15,.94) 60%); backdrop-filter:blur(4px); text-align:center; }
+  .screen { position:fixed; inset:0; z-index:40; }
   .hidden { display:none !important; }
-  .logo { font-size:min(12vw,120px); font-weight:900; letter-spacing:-.02em; line-height:.92;
-    background:linear-gradient(180deg,#fff 10%, var(--pink) 55%, #7b2dff 100%); -webkit-background-clip:text; background-clip:text; color:transparent;
-    filter:drop-shadow(0 4px 30px rgba(255,45,149,.55)); }
-  .sub { font-size:min(3.4vw,26px); letter-spacing:.5em; color:var(--cyan); margin-top:.1em; text-transform:uppercase; }
-  .hint { margin-top:2em; font-size:min(2.5vw,19px); color:#cbb8e6; line-height:1.9; max-width:680px; }
   .key { display:inline-block; min-width:1.7em; padding:.1em .5em; margin:0 .1em; border-radius:.4em;
     background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18); font-weight:700; font-size:.9em; }
-  .press { margin-top:1.8em; font-size:min(3.2vw,26px); font-weight:800; color:#fff; animation:pulse 1.4s ease-in-out infinite; }
-  @keyframes pulse { 0%,100%{opacity:.45;transform:scale(1);} 50%{opacity:1;transform:scale(1.05);} }
-  .gp { margin-top:1.2em; font-size:min(2.4vw,17px); color:#8f7fb0; }
+  .logoImg { font-weight:900; line-height:.82; filter:drop-shadow(0 4px 30px rgba(255,45,149,.55)); }
+  .logoImg .l1 { display:block; font-size:min(9vw,92px); letter-spacing:-.01em;
+    background:linear-gradient(180deg,#8ff0ff,#00cfe6); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .logoImg .l2 { display:block; font-size:min(9vw,92px); font-style:italic; margin-top:-.08em;
+    background:linear-gradient(180deg,#ff8fd0,#ff1f8f); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .logoImg .l2::after { content:" 🌴"; -webkit-text-fill-color:initial; font-size:.7em; }
+
+  /* ---------------- LOADING ---------------- */
+  #loading { position:fixed; inset:0; z-index:70; background:#05010f center/cover no-repeat; display:flex; flex-direction:column; justify-content:flex-end; }
+  #loading::after { content:""; position:absolute; inset:0; background:linear-gradient(to top, rgba(3,1,10,.96) 4%, rgba(3,1,10,.55) 16%, rgba(0,0,0,0) 34%); pointer-events:none; }
+  #loadingInner { position:relative; z-index:2; padding:0 4vw 4.2vh; }
+  #loadtext { letter-spacing:.22em; font-size:min(3vw,22px); font-weight:700; color:#fff; text-shadow:0 2px 10px #000; margin-bottom:.7em; }
+  #loadtext b { color:var(--pink); }
+  #loadRow { display:flex; align-items:center; gap:1.2vw; }
+  #loadbarWrap { flex:1; height:min(1.6vh,11px); border-radius:99px; background:rgba(255,255,255,.14); overflow:hidden; box-shadow:inset 0 0 8px rgba(0,0,0,.6); }
+  #loadbar { height:100%; width:0; border-radius:99px; background:linear-gradient(90deg,#ff8a3d,var(--pink)); transition:width .2s ease; box-shadow:0 0 14px rgba(255,45,149,.7); }
+  #loadpct { font-size:min(3.4vw,30px); font-weight:800; color:#fff; font-variant-numeric:tabular-nums; min-width:2.6em; text-align:right; text-shadow:0 2px 8px #000; }
+  #loadtip { position:absolute; top:4vh; left:4vw; z-index:2; max-width:52vw; font-size:min(2.4vw,18px); color:#e7dcf7; text-shadow:0 2px 8px #000; opacity:.9; }
+  #loadtip b { color:var(--yellow); }
+
+  /* ---------------- shared menu chrome ---------------- */
+  .menuScreen { position:fixed; inset:0; z-index:50; background:#05010f center/cover no-repeat; overflow:hidden; }
+  .menuScreen::before { content:""; position:absolute; inset:0; background:linear-gradient(105deg, rgba(4,1,12,.92) 30%, rgba(4,1,12,.35) 62%, rgba(4,1,12,.1) 100%); }
+  .menuTopLogo { position:absolute; top:5vh; left:4.5vw; z-index:3; }
+  .footer { position:absolute; bottom:2.2vh; left:4.5vw; right:4.5vw; z-index:3; display:flex; align-items:center; gap:1.4vw;
+    font-size:min(2vw,15px); color:#b9a8d6; letter-spacing:.05em; border-top:1px solid rgba(255,255,255,.12); padding-top:1.2vh; }
+  .footer .disc { color:var(--cyan); font-weight:700; }
+  .footer .newsTag { color:var(--pink); font-weight:800; letter-spacing:.15em; }
+  .footer .newsBody { color:#e7dcf7; }
+
+  /* ---------------- HOME MENU ---------------- */
+  #homeMenu { position:absolute; left:4.5vw; bottom:12vh; z-index:3; width:min(34vw,420px); }
+  .mItem { display:flex; align-items:center; gap:1vw; padding:1.15vh 1.4vw; margin:0.35vh 0; border-radius:.5em;
+    font-size:min(2.8vw,26px); font-weight:700; color:#e9dcff; cursor:pointer; border:1px solid transparent; transition:all .12s; }
+  .mItem .ic { width:1.3em; text-align:center; opacity:.85; }
+  .mItem.sel { background:linear-gradient(90deg, var(--pink), rgba(255,45,149,.15)); color:#fff; border-color:rgba(255,255,255,.25);
+    box-shadow:0 6px 24px rgba(255,45,149,.4); transform:translateX(6px); }
+  .mItem.dim { opacity:.4; }
+  .playerCard { position:absolute; top:5vh; right:4.5vw; z-index:3; display:flex; align-items:center; gap:1vw;
+    background:rgba(10,4,26,.6); border:1px solid rgba(255,255,255,.15); border-radius:.7em; padding:1.1vh 1.3vw; backdrop-filter:blur(6px); }
+  .playerCard .pcAv { width:min(7vw,58px); height:min(7vw,58px); border-radius:.5em; background:linear-gradient(135deg,#7b2dff,#ff2d95); display:flex; align-items:center; justify-content:center; font-size:min(4vw,32px); }
+  .playerCard .pcName { font-weight:800; font-size:min(2.4vw,20px); color:#fff; }
+  .playerCard .pcCash { color:var(--yellow); font-weight:700; font-size:min(2vw,16px); }
+  .playerCard .pcRank { color:#cbb8e6; font-size:min(1.8vw,14px); }
+  .playerCard .pcRank b { color:var(--cyan); }
+  .xpbar { width:min(14vw,150px); height:5px; border-radius:3px; background:rgba(255,255,255,.15); margin-top:.35em; overflow:hidden; }
+  .xpbar>i { display:block; height:100%; width:47%; background:linear-gradient(90deg,var(--cyan),var(--pink)); }
+
+  /* ---------------- SETTINGS / PAUSE ---------------- */
+  #pauseTag { position:absolute; top:5vh; right:5vw; z-index:3; font-size:min(3.4vw,30px); font-weight:900; letter-spacing:.14em; color:var(--pink); }
+  #setWrap { position:absolute; top:16vh; left:4.5vw; right:4.5vw; bottom:10vh; z-index:3; display:flex; gap:2vw; }
+  #setCats { width:min(24vw,270px); flex-shrink:0; }
+  .catItem { display:flex; align-items:center; gap:.8vw; padding:1.15vh 1.2vw; margin:.3vh 0; border-radius:.5em;
+    font-size:min(2.3vw,20px); font-weight:700; color:#cbb8e6; border:1px solid transparent; }
+  .catItem .ic { width:1.4em; text-align:center; }
+  .catItem.sel { background:linear-gradient(90deg,var(--pink),rgba(255,45,149,.12)); color:#fff; box-shadow:0 4px 18px rgba(255,45,149,.35); }
+  #setPanel { flex:1; background:rgba(10,4,26,.55); border:1px solid rgba(255,45,149,.4); border-radius:.8em; padding:2.2vh 2vw; overflow-y:auto; backdrop-filter:blur(6px); }
+  #setPanelTitle { color:var(--pink); font-weight:800; font-size:min(3vw,26px); letter-spacing:.08em; margin-bottom:1.4vh; }
+  .setRow { display:flex; align-items:center; justify-content:space-between; padding:1.15vh 1vw; border-bottom:1px solid rgba(255,255,255,.09); border-radius:.4em; }
+  .setRow.sel { background:rgba(255,255,255,.07); border-color:rgba(255,45,149,.5); box-shadow:inset 0 0 0 1px rgba(255,45,149,.4); }
+  .setRow .lab { font-size:min(2.3vw,20px); color:#e9dcff; font-weight:600; }
+  .setRow .ctl { display:flex; align-items:center; gap:1vw; font-size:min(2.2vw,19px); color:#fff; font-weight:700; }
+  .setRow .arrow { color:var(--cyan); opacity:.5; font-weight:900; }
+  .setRow.sel .arrow { opacity:1; }
+  .setRow .val { min-width:6em; text-align:center; color:var(--yellow); }
+  .toggle { width:2.8em; height:1.5em; border-radius:99px; background:rgba(255,255,255,.2); position:relative; transition:.15s; }
+  .toggle.on { background:var(--pink); }
+  .toggle>i { position:absolute; top:.15em; left:.15em; width:1.2em; height:1.2em; border-radius:50%; background:#fff; transition:.15s; }
+  .toggle.on>i { left:1.45em; }
+  .setHints { position:absolute; bottom:2.4vh; right:5vw; z-index:3; font-size:min(2.2vw,17px); color:#b9a8d6; }
+  .setHints .key { font-size:.85em; }
+
+  /* generic press hint */
+  .press { font-size:min(3vw,24px); font-weight:800; color:#fff; animation:pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:.5;} 50%{opacity:1;} }
+  .gp { font-size:min(2.2vw,16px); color:#8f7fb0; }
   .gp b { color:var(--cyan); }
-  #controls table { border-collapse:collapse; margin-top:1em; font-size:min(2.5vw,18px); }
-  #controls td { padding:.32em 1.1em; border-bottom:1px solid rgba(255,255,255,.08); }
-  #controls td:first-child { color:var(--cyan); font-weight:700; text-align:right; }
-  #controls td:last-child { text-align:left; color:#e7dcf7; }
-  .pauseTitle { font-size:min(9vw,70px); font-weight:900; letter-spacing:.06em; }
-  #loading { position:fixed; inset:0; z-index:60; display:flex; flex-direction:column; align-items:center; justify-content:center;
-    background:#05010f; color:#c9b6ea; }
-  #loadlogo { font-size:min(10vw,90px); font-weight:900; background:linear-gradient(180deg,#fff,var(--pink)); -webkit-background-clip:text; background-clip:text; color:transparent; filter:drop-shadow(0 4px 24px rgba(255,45,149,.5)); }
-  #loadtext { margin-top:1.4em; letter-spacing:.28em; font-size:min(3vw,18px); color:#7a6b9e; }
-  #loadbarWrap { margin-top:1em; width:min(60vw,420px); height:6px; border-radius:3px; background:rgba(255,255,255,.1); overflow:hidden; }
-  #loadbar { height:100%; width:0; background:linear-gradient(90deg,var(--pink),var(--cyan)); transition:width .15s; }
-  .footer { position:absolute; bottom:2.4vh; font-size:min(2.2vw,14px); color:#6a5a88; letter-spacing:.14em; }
 </style>
 </head>
 <body>
@@ -85,44 +140,49 @@
   <div id="toast"></div>
 </div>
 
-<div id="title" class="screen hidden">
-  <div class="logo">NEON&nbsp;DRIVE</div>
-  <div class="sub">Leonida</div>
-  <div class="press" id="pressStart">Press <span class="key">A</span> / <span class="key">Enter</span> to Drive</div>
-  <div class="gp" id="gpStatus">🎮 Connect an Xbox controller and press <b>A</b> — or use keyboard</div>
-  <div class="hint">
-    <b style="color:#fff">GTA V controls:</b> <b style="color:#fff">RT</b> gas · <b style="color:#fff">LT</b> brake · <b style="color:#fff">RB</b> handbrake · <b style="color:#fff">Y</b> in/out · <b style="color:#fff">A</b> sprint · <b style="color:#fff">X</b> jump · <b style="color:#fff">L3</b> horn · <b style="color:#fff">D-pad</b> radio/lights · <b style="color:#fff">View</b> camera<br>
-    <b style="color:#fff">Keyboard:</b>
-    <span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> drive ·
-    <span class="key">Space</span> handbrake/jump · <span class="key">F</span> in/out · <span class="key">G</span> horn · <span class="key">R</span> radio · <span class="key">H</span> lights · <span class="key">V</span> camera · <span class="key">Esc</span> pause
+<!-- ===================== HOME MENU ===================== -->
+<div id="title" class="menuScreen hidden">
+  <div class="menuTopLogo logoImg"><span class="l1">NEON&nbsp;DRIVE</span><span class="l2">LEONIDA</span></div>
+  <div class="playerCard">
+    <div class="pcAv">🧑‍🎤</div>
+    <div>
+      <div class="pcName">PLAYER1</div>
+      <div class="pcCash">💵 <span id="pcCash">$0</span></div>
+      <div class="pcRank">RANK <b id="pcRank">1</b><div class="xpbar"><i id="pcXp"></i></div></div>
+    </div>
   </div>
-  <div class="footer">Fan-made tribute · not affiliated with Rockstar Games</div>
+  <div id="homeMenu"></div>
+  <div class="footer">
+    <span class="disc">💬 JOIN OUR DISCORD</span> ·
+    <span class="newsTag">NEWS</span>
+    <span class="newsBody" id="newsBody">Welcome to Neon Drive: Leonida — built for TV &amp; Xbox controller.</span>
+  </div>
 </div>
 
-<div id="pause" class="screen hidden">
-  <div class="pauseTitle">PAUSED</div>
-  <div id="controls"><table>
-    <tr><td>Left Stick / WASD</td><td>Drive &amp; steer · Move</td></tr>
-    <tr><td>RT / W</td><td>Accelerate</td></tr>
-    <tr><td>LT / S</td><td>Brake · Reverse</td></tr>
-    <tr><td>RB / Space</td><td>Handbrake (drift)</td></tr>
-    <tr><td>Y / F</td><td>Enter · Exit vehicle</td></tr>
-    <tr><td>A / Shift</td><td>Sprint (on foot)</td></tr>
-    <tr><td>X / Space</td><td>Jump (on foot)</td></tr>
-    <tr><td>L3 / G</td><td>Horn</td></tr>
-    <tr><td>D-Pad Left / R</td><td>Radio station</td></tr>
-    <tr><td>D-Pad Right / H</td><td>Headlights</td></tr>
-    <tr><td>View / V</td><td>Camera mode</td></tr>
-    <tr><td>Right Stick / Q·E</td><td>Look around</td></tr>
-    <tr><td>Start / Esc</td><td>Resume</td></tr>
-  </table></div>
-  <div class="press">Press <span class="key">Start</span> / <span class="key">Esc</span> to Resume</div>
+<!-- ===================== PAUSE / SETTINGS ===================== -->
+<div id="pause" class="menuScreen hidden">
+  <div class="menuTopLogo logoImg"><span class="l1">NEON&nbsp;DRIVE</span><span class="l2">LEONIDA</span></div>
+  <div id="pauseTag">PAUSED ❚❚</div>
+  <div id="setWrap">
+    <div id="setCats"></div>
+    <div id="setPanel">
+      <div id="setPanelTitle">GAMEPLAY</div>
+      <div id="setRows"></div>
+    </div>
+  </div>
+  <div class="setHints"><span class="key">↑↓</span> navigate · <span class="key">←→</span>/<span class="key">A</span> change · <span class="key">LB</span><span class="key">RB</span> category · <span class="key">B</span>/<span class="key">Esc</span> resume</div>
 </div>
 
+<!-- ===================== LOADING ===================== -->
 <div id="loading">
-  <div id="loadlogo">NEON&nbsp;DRIVE</div>
-  <div id="loadtext">BUILDING LEONIDA…</div>
-  <div id="loadbarWrap"><div id="loadbar"></div></div>
+  <div id="loadtip">🌴 <b>TIP:</b> Press <span class="key">Y</span> to jack any car — your ride stays parked (green dot) when you leave it.</div>
+  <div id="loadingInner">
+    <div id="loadtext">LOADING <b>LEONIDA</b>…</div>
+    <div id="loadRow">
+      <div id="loadbarWrap"><div id="loadbar"></div></div>
+      <div id="loadpct">0%</div>
+    </div>
+  </div>
 </div>
 
 <script type="importmap">
@@ -197,8 +257,10 @@ const Input = {
   start(){ return this.btDown(9)||this.kDown('Escape'); },
   confirm(){ return this.btDown(0)||this.kDown('Enter')||this.kDown('Space'); },
 };
-// Xbox controller vibration (no-ops without a pad or actuator support)
+// Xbox controller vibration (no-ops without a pad, actuator support, or if disabled in settings)
+let RUMBLE_ON=true;
 function rumble(weak=0.4, strong=0.6, ms=150){
+  if(!RUMBLE_ON) return;
   const p=Input.gp(); const act=p&&(p.vibrationActuator||(p.hapticActuators&&p.hapticActuators[0]));
   if(!act||!act.playEffect) return;
   act.playEffect('dual-rumble',{duration:ms,weakMagnitude:clamp(weak,0,1),strongMagnitude:clamp(strong,0,1)}).catch(()=>{});
@@ -210,39 +272,41 @@ function rumble(weak=0.4, strong=0.6, ms=150){
 const Audio = {
   ctx:null,master:null,eOsc:null,eGain:null,sGain:null,on:false,
   init(){ if(this.ctx) return; const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
-    this.ctx=new AC(); this.master=this.ctx.createGain(); this.master.gain.value=0.55; this.master.connect(this.ctx.destination);
+    this.ctx=new AC(); this.master=this.ctx.createGain(); this.master.gain.value=0.9; this.master.connect(this.ctx.destination);
+    this.bus=this.ctx.createGain(); this.bus.gain.value=0.6; this.bus.connect(this.master); // SFX bus (volume setting)
     this.eGain=this.ctx.createGain(); this.eGain.gain.value=0; const eg=this.ctx.createGain(); eg.gain.value=0.13;
     this.eOsc=this.ctx.createOscillator(); this.eOsc.type='sawtooth'; this.eOsc.frequency.value=60;
     const lp=this.ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=900;
-    this.eOsc.connect(lp); lp.connect(this.eGain); this.eGain.connect(eg); eg.connect(this.master); this.eOsc.start();
+    this.eOsc.connect(lp); lp.connect(this.eGain); this.eGain.connect(eg); eg.connect(this.bus); this.eOsc.start();
     this.sGain=this.ctx.createGain(); this.sGain.gain.value=0;
     const so=this.ctx.createOscillator(); so.type='square'; so.frequency.value=700; const sg=this.ctx.createGain(); sg.gain.value=0.04;
-    so.connect(this.sGain); this.sGain.connect(sg); sg.connect(this.master); so.start(); this.sOsc=so;
+    so.connect(this.sGain); this.sGain.connect(sg); sg.connect(this.bus); so.start(); this.sOsc=so;
     // tire screech: looped noise through a bandpass
     const nb=this.ctx.createBuffer(1,this.ctx.sampleRate,this.ctx.sampleRate);
     const nd=nb.getChannelData(0); for(let i=0;i<nd.length;i++) nd[i]=Math.random()*2-1;
     const ns=this.ctx.createBufferSource(); ns.buffer=nb; ns.loop=true;
     const bp=this.ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=900; bp.Q.value=6;
     this.scGain=this.ctx.createGain(); this.scGain.gain.value=0;
-    ns.connect(bp); bp.connect(this.scGain); this.scGain.connect(this.master); ns.start();
+    ns.connect(bp); bp.connect(this.scGain); this.scGain.connect(this.bus); ns.start();
     this.on=true;
   },
   screech(amount){ if(!this.on) return; this.scGain.gain.setTargetAtTime(clamp(amount,0,0.22), this.ctx.currentTime, 0.08); },
   horn(on){ if(!this.on) return;
     if(on&&!this.hOsc){ this.hOsc=[440,554].map(f=>{ const o=this.ctx.createOscillator(),g=this.ctx.createGain();
-      o.type='square'; o.frequency.value=f; g.gain.value=0.06; o.connect(g); g.connect(this.master); o.start(); return {o,g}; }); }
+      o.type='square'; o.frequency.value=f; g.gain.value=0.06; o.connect(g); g.connect(this.bus); o.start(); return {o,g}; }); }
     else if(!on&&this.hOsc){ for(const h of this.hOsc){ h.g.gain.setTargetAtTime(0,this.ctx.currentTime,0.02); h.o.stop(this.ctx.currentTime+0.1); } this.hOsc=null; } },
   resume(){ if(this.ctx&&this.ctx.state==='suspended') this.ctx.resume(); },
+  setVol(master,sfx){ if(!this.on) return; this.master.gain.value=master; this.bus.gain.value=sfx; },
   engine(r,on){ if(!this.on) return; const t=this.ctx.currentTime; this.eGain.gain.setTargetAtTime(on?1:0,t,0.1); this.eOsc.frequency.setTargetAtTime(55+r*150,t,0.05); },
   siren(on){ if(!this.on) return; this.sGain.gain.setTargetAtTime(on?1:0,this.ctx.currentTime,0.2);
     if(on&&this.sOsc){ const t=this.ctx.currentTime; this.sOsc.frequency.setTargetAtTime(600+Math.sin(t*6)*250,t,0.05); } },
   blip(f=880,d=0.12,ty='sine',v=0.3){ if(!this.on) return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(),g=this.ctx.createGain();
-    o.type=ty; o.frequency.value=f; g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(0.001,t+d); o.connect(g); g.connect(this.master); o.start(); o.stop(t+d); },
+    o.type=ty; o.frequency.value=f; g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(0.001,t+d); o.connect(g); g.connect(this.bus); o.start(); o.stop(t+d); },
   chime(){ this.blip(880,0.1,'sine',0.3); setTimeout(()=>this.blip(1320,0.15,'sine',0.3),80); },
   cash(){ this.blip(1560,0.07,'triangle',0.3); setTimeout(()=>this.blip(2080,0.12,'triangle',0.25),60); },
   thud(v=1){ if(!this.on) return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(),g=this.ctx.createGain();
     o.type='square'; o.frequency.setValueAtTime(120,t); o.frequency.exponentialRampToValueAtTime(40,t+0.2);
-    g.gain.setValueAtTime(clamp(v*0.5,0,0.6),t); g.gain.exponentialRampToValueAtTime(0.001,t+0.3); o.connect(g); g.connect(this.master); o.start(); o.stop(t+0.3); },
+    g.gain.setValueAtTime(clamp(v*0.5,0,0.6),t); g.gain.exponentialRampToValueAtTime(0.001,t+0.3); o.connect(g); g.connect(this.bus); o.start(); o.stop(t+0.3); },
 };
 // ---- Radio: tiny synth stations, cycled with D-pad left (GTA V style) ----
 const Radio={
@@ -750,7 +814,8 @@ function spawnCoins(){ const coords=window.__coords||[0]; for(let i=0;i<CFG.coin
 //  STATE / WANTED / POLICE
 // =========================================================================
 const State={ cash:0, wanted:0, wtimer:0, police:[], mode:'load', mission:null, objPos:null, lightsOn:true };
-function setWanted(n){ n=clamp(n,0,5); if(n>State.wanted) Audio.blip(300,0.2,'square',0.3); State.wanted=n; State.wtimer=n>0?16:0; renderStars(); while(State.police.length<n) spawnPolice(); }
+function setWanted(n){ n=clamp(n,0,5); if(n>State.wanted) Audio.blip(300,0.2,'square',0.3); State.wanted=n; State.wtimer=n>0?16:0; renderStars();
+  const cap=Math.round(n*(SET.difficulty==='HARD'?1.5:SET.difficulty==='EASY'?0.6:1)); while(State.police.length<cap) spawnPolice(); }
 function addWanted(a=1){ setWanted(State.wanted+a); State.wtimer=Math.max(State.wtimer,12); }
 function spawnPolice(){ const ref=player.inCar?player.inCar.pos:player.pos; const a=rand(0,TAU),d=rand(90,150);
   let x=clamp(ref.x+Math.cos(a)*d,-W+20,W-20), z=clamp(ref.z+Math.sin(a)*d,-W+20,W-20); const c=new Car('car_police',x,z,true); c.maxSpeed=52; State.police.push(c); }
@@ -790,14 +855,14 @@ function updateCamera(dt){
   const av=player.inCar; const focus=(av?av.pos:player.pos);
   const focusY=(av?av.y:(player.y||0));
   const mode=CAM_MODES[cam.mode];
-  const mx=Input.camX(), my=Input.camY();
-  if(av){ // recenter behind car; right stick nudges temporarily
+  const lookS=SET.lookSens, mx=Input.camX()*lookS, my=Input.camY()*lookS*(SET.invertY?-1:1);
+  if(av && SET.autoCam){ // recenter behind car; right stick nudges temporarily
     cam.manual=lerp(cam.manual,0,dt*2.2)-mx*dt*2.5;
     cam.pitch=clamp(cam.pitch-my*dt*1.2,0.02,0.85);
     cam.yaw=av.heading+cam.manual;
-  } else { // free orbit on foot, gently settles behind the character while moving
+  } else { // free orbit (on foot, or in-car with auto-center off)
     cam.footYaw-=mx*dt*2.5; cam.pitch=clamp(cam.pitch-my*dt*1.2,0.02,0.85);
-    if(player.speed>0.5&&Math.abs(mx)<0.05){
+    if(!av && player.speed>0.5&&Math.abs(mx)<0.05){
       let dy=player.heading-cam.footYaw; while(dy>Math.PI)dy-=TAU; while(dy<-Math.PI)dy+=TAU;
       cam.footYaw+=dy*clamp(dt*1.2,0,1);
     }
@@ -827,7 +892,7 @@ function updateCamera(dt){
 // =========================================================================
 //  HUD
 // =========================================================================
-const speedNum=el('speedNum'),gearBox=el('gearBox'),cashEl=el('cash'),starsEl=el('stars'),objText=el('objText'),distEl=el('dist'),promptEl=el('prompt'),promptText=el('promptText'),toastEl=el('toast');
+const speedNum=el('speedNum'),speedUnitEl=el('speedUnit'),gearBox=el('gearBox'),cashEl=el('cash'),starsEl=el('stars'),objText=el('objText'),distEl=el('dist'),promptEl=el('prompt'),promptText=el('promptText'),toastEl=el('toast');
 function renderCash(){ cashEl.textContent='$'+State.cash.toLocaleString(); }
 function renderStars(){ let s=''; for(let i=0;i<5;i++) s+=`<span class="${i<State.wanted?'on':'off'}">★</span>`; starsEl.innerHTML=s; }
 function setObjective(t,pos){ objText.textContent=t; State.objPos=pos; if(!pos) distEl.textContent=''; }
@@ -915,7 +980,7 @@ function updateFoot(dt){
 }
 function updateDrive(dt){
   const c=player.inCar; const hb=Input.handbrake();
-  c.drive(dt,Input.throttle(),Input.brake(),Input.steer(),hb); c.integrate(dt);
+  c.drive(dt,Input.throttle(),Input.brake(),clamp(Input.steer()*SET.steerSens,-1,1),hb); c.integrate(dt);
   // pseudo-gearbox: rpm saws up through each "gear" as speed climbs
   const sp=Math.abs(c.speed), GEAR=13;
   const rpm=0.25 + ((sp%GEAR)/GEAR)*0.75;
@@ -960,17 +1025,19 @@ function animate(now){ requestAnimationFrame(animate); let dt=(now-last)/1000; l
     for(const c of traffic) updTraffic(c,dt);
     for(const p of peds) updPed(p,dt);
     collectCoins();
-    if(State.wanted>0){ State.wtimer-=dt; if(State.wtimer<=0) setWanted(State.wanted-1); Audio.siren(State.police.length>0); for(const c of State.police) updPolice(c,dt); if(State.police.length<State.wanted&&Math.random()<0.01) spawnPolice(); }
+    if(State.wanted>0){ State.wtimer-=dt*(SET.difficulty==='EASY'?1.7:SET.difficulty==='HARD'?0.6:1); if(State.wtimer<=0) setWanted(State.wanted-1); Audio.siren(State.police.length>0); for(const c of State.police) updPolice(c,dt); if(State.police.length<State.wanted&&Math.random()<0.01) spawnPolice(); }
     else { Audio.siren(false); if(State.police.length) clearPolice(); }
     checkMission(); updateCamera(dt); drawMinimap();
-    const av=player.inCar; speedNum.textContent=av?Math.round(Math.abs(av.speed)*MPH):0;
+    const av=player.inCar; const conv=SET.units==='KMH'?3.6:MPH;
+    speedNum.textContent=av?Math.round(Math.abs(av.speed)*conv):0;
+    speedUnitEl.textContent=SET.units;
     gearBox.textContent=av?(av.speed<-0.5?'REVERSE':av.speed<0.5?'NEUTRAL':'DRIVE'):'ON FOOT';
     // headlights follow the player's car (D-pad right toggles)
     if(av&&State.lightsOn!==false){ const f=av.forward; headlight.intensity=140;
       headlight.position.set(av.pos.x+f.x*2.1, av.y+1.0, av.pos.z+f.z*2.1);
       headlight.target.position.set(av.pos.x+f.x*18, 0.4, av.pos.z+f.z*18); }
     else headlight.intensity=0;
-  } else if(State.mode!=='load'){ cam.footYaw+=dt*0.12; cam.yaw=cam.footYaw; updateCamera(dt); }
+  } else if(State.mode==='title'){ cam.footYaw+=dt*0.12; cam.yaw=cam.footYaw; updateCamera(dt); }
   renderer.render(scene,camera);
 }
 
@@ -978,48 +1045,231 @@ function animate(now){ requestAnimationFrame(animate); let dt=(now-last)/1000; l
 //  FLOW
 // =========================================================================
 let playerCar=null;
-// Title-screen music (user's MP3 at assets/title_theme.mp3; silently absent-safe)
-const titleMusic=new window.Audio('./assets/title_theme.mp3');
-titleMusic.loop=true; titleMusic.volume=0.55; titleMusic.preload='auto';
-let musicWanted=false, musicFade=null;
-function tryTitleMusic(){ if(!musicWanted) return; titleMusic.play().catch(()=>{}); }
-function stopTitleMusic(){ musicWanted=false; clearInterval(musicFade);
-  musicFade=setInterval(()=>{ titleMusic.volume=Math.max(0,titleMusic.volume-0.06);
-    if(titleMusic.volume<=0){ titleMusic.pause(); titleMusic.volume=0.55; clearInterval(musicFade); } },80); }
-addEventListener('keydown',tryTitleMusic,{once:false});
-addEventListener('pointerdown',tryTitleMusic,{once:false});
-function startGame(){ Audio.init(); Audio.resume(); stopTitleMusic(); el('title').classList.add('hidden'); el('pause').classList.add('hidden'); el('hud').classList.remove('hidden');
-  State.mode='play'; renderCash(); renderStars(); if(!State.mission) startMission(); }
-function pause(){ State.mode='pause'; el('pause').classList.remove('hidden'); Audio.engine(0,false); Audio.siren(false); Audio.screech(0); Audio.horn(false); }
-function resume(){ State.mode='play'; el('pause').classList.add('hidden'); Audio.resume(); }
-function menuLoop(){ requestAnimationFrame(menuLoop); if(State.mode==='title'){ if(Input.confirm()) startGame(); } else if(State.mode==='pause'){ if(Input.start()) resume(); } }
+const IS_XBOX=/xbox/i.test(navigator.userAgent);
 
-function onPad(c){ const s=el('gpStatus'); if(!s) return; s.innerHTML=c?'🎮 <b style="color:#39ff88">Controller connected!</b> Press <b>A</b> to drive':'🎮 Connect an Xbox controller and press <b>A</b> — or use keyboard'; }
+// ========================= SETTINGS =========================
+const SET={ units:'MPH', autoCam:true, invertY:false, minimap:'ON', difficulty:'NORMAL',
+  camDefault:'NEAR', fullscreen:IS_XBOX, shadows:'HIGH', drawDist:'MED',
+  masterVol:0.9, musicVol:0.6, sfxVol:0.6, vibration:true, steerSens:1.0, lookSens:1.0 };
+function saveSet(){ try{ localStorage.setItem('nd_set',JSON.stringify(SET)); }catch(e){} }
+function loadSet(){ try{ const s=JSON.parse(localStorage.getItem('nd_set')); if(s) Object.assign(SET,s); }catch(e){} }
+function setFullscreen(v){ try{ if(v){ const d=document.documentElement; (d.requestFullscreen||d.webkitRequestFullscreen||(()=>{})).call(d); }
+  else { (document.exitFullscreen||document.webkitExitFullscreen||(()=>{})).call(document); } }catch(e){} }
+document.addEventListener('fullscreenchange',()=>{ SET.fullscreen=!!document.fullscreenElement; if(State.mode==='pause') renderRows(); });
+function applyOne(key){ switch(key){
+  case 'minimap': el('minimapWrap').style.display=SET.minimap==='OFF'?'none':''; break;
+  case 'shadows':
+    if(SET.shadows==='OFF') renderer.shadowMap.enabled=false;
+    else { renderer.shadowMap.enabled=true; const sz=SET.shadows==='HIGH'?2048:1024;
+      if(sun.shadow.mapSize.x!==sz){ sun.shadow.mapSize.set(sz,sz); if(sun.shadow.map){ sun.shadow.map.dispose(); sun.shadow.map=null; } } }
+    renderer.shadowMap.needsUpdate=true; break;
+  case 'drawDist': { const f={NEAR:480,MED:820,FAR:1300}[SET.drawDist]; scene.fog.far=f; scene.fog.near=f*0.32; camera.far=Math.max(2600,f*2.2); camera.updateProjectionMatrix(); break; }
+  case 'masterVol': case 'musicVol': case 'sfxVol': Audio.setVol(SET.masterVol,SET.sfxVol); titleMusic.volume=SET.masterVol*SET.musicVol; break;
+  case 'vibration': RUMBLE_ON=SET.vibration; if(SET.vibration) rumble(0.3,0.4,120); break;
+  case 'camDefault': cam.mode={NEAR:0,MID:1,FAR:2}[SET.camDefault]; break;
+  case 'fullscreen': setFullscreen(SET.fullscreen); break;
+} }
+function applyAll(){ ['minimap','shadows','drawDist','masterVol','camDefault','vibration'].forEach(applyOne); }
+
+// ========================= MUSIC (user MP3) =========================
+const titleMusic=new window.Audio('./assets/title_theme.mp3');
+titleMusic.loop=true; titleMusic.preload='auto'; titleMusic.volume=SET.masterVol*SET.musicVol;
+let musicWanted=true, musicFade=null;
+function tryMusic(){ if(musicWanted && titleMusic.paused) titleMusic.play().catch(()=>{}); }
+function fadeOutMusic(){ clearInterval(musicFade); const target=SET.masterVol*SET.musicVol;
+  musicFade=setInterval(()=>{ titleMusic.volume=Math.max(0,titleMusic.volume-0.05);
+    if(titleMusic.volume<=0.001){ titleMusic.pause(); titleMusic.volume=target; clearInterval(musicFade); } },70); }
+// first user gesture: unlock audio + fullscreen (needed by Xbox/desktop browsers)
+let gestured=false;
+function firstGesture(){ if(gestured) return; gestured=true; Audio.init(); Audio.resume(); Audio.setVol(SET.masterVol,SET.sfxVol);
+  tryMusic(); if(SET.fullscreen) setFullscreen(true); }
+addEventListener('keydown',firstGesture); addEventListener('pointerdown',firstGesture);
+
+// ========================= NAVIGATION =========================
+const Nav={ t:0, last:'',
+  dir(){ const now=performance.now(); let d='';
+    const up=Input.bt(12)||Input.keys['ArrowUp']||Input.keys['KeyW']||Input.ax(1)<-0.5;
+    const dn=Input.bt(13)||Input.keys['ArrowDown']||Input.keys['KeyS']||Input.ax(1)>0.5;
+    const lf=Input.bt(14)||Input.keys['ArrowLeft']||Input.keys['KeyA']||Input.ax(0)<-0.5;
+    const rt=Input.bt(15)||Input.keys['ArrowRight']||Input.keys['KeyD']||Input.ax(0)>0.5;
+    if(up)d='up'; else if(dn)d='down'; else if(lf)d='left'; else if(rt)d='right';
+    if(!d){ this.last=''; return ''; }
+    if(d!==this.last){ this.last=d; this.t=now+360; return d; }
+    if(now>this.t){ this.t=now+130; return d; } return ''; },
+  confirm(){ return Input.btDown(0)||Input.kDown('Enter'); },
+  back(){ return Input.btDown(1)||Input.kDown('Escape')||Input.kDown('Backspace'); },
+  catPrev(){ return Input.btDown(4)||Input.kDown('KeyQ'); },
+  catNext(){ return Input.btDown(5)||Input.kDown('KeyE'); },
+};
+
+// ========================= HOME MENU =========================
+const HOME_ITEMS=[
+  {ic:'▶',  label:'CONTINUE',   act:()=>startGame()},
+  {ic:'✚',  label:'NEW GAME',   act:()=>{ State.cash=0; renderCash(); startGame(); }},
+  {ic:'🏁', label:'MISSIONS',   act:()=>startGame()},
+  {ic:'🚗', label:'GARAGE',     soon:true},
+  {ic:'🌐', label:'ONLINE',     soon:true},
+  {ic:'🛒', label:'STORE',      soon:true},
+  {ic:'⚙',  label:'SETTINGS',   act:()=>openSettings('home')},
+  {ic:'🎮', label:'CONTROLS',   act:()=>openSettings('home', catIndex('CONTROLS'))},
+  {ic:'⛶',  label:'FULLSCREEN', act:()=>{ SET.fullscreen=!SET.fullscreen; setFullscreen(SET.fullscreen); saveSet(); toast('⛶ Fullscreen '+(SET.fullscreen?'on':'off'),900); }},
+];
+let homeSel=0;
+function rankOf(){ return 1+Math.floor(State.cash/2000); }
+function renderHome(){
+  el('pcCash').textContent='$'+State.cash.toLocaleString();
+  el('pcRank').textContent=rankOf();
+  el('pcXp').style.width=Math.round((State.cash%2000)/2000*100)+'%';
+  el('homeMenu').innerHTML=HOME_ITEMS.map((it,i)=>
+    `<div class="mItem ${i===homeSel?'sel':''} ${it.soon?'dim':''}"><span class="ic">${it.ic}</span>${it.label}${it.soon?' <span style="font-size:.55em;color:#888;letter-spacing:.15em">SOON</span>':''}</div>`).join('');
+}
+function navHome(){
+  const d=Nav.dir();
+  if(d==='up'){ homeSel=(homeSel-1+HOME_ITEMS.length)%HOME_ITEMS.length; renderHome(); Audio.blip(660,0.04,'sine',0.12); }
+  else if(d==='down'){ homeSel=(homeSel+1)%HOME_ITEMS.length; renderHome(); Audio.blip(660,0.04,'sine',0.12); }
+  if(Nav.confirm()){ const it=HOME_ITEMS[homeSel];
+    if(it.soon){ toast('🔒 '+it.label+' — coming soon',1200); Audio.blip(200,0.12,'square',0.2); }
+    else { Audio.blip(1200,0.06,'sine',0.2); it.act(); } }
+  if(Input.start()) startGame();
+}
+
+// ========================= SETTINGS SCREEN =========================
+const CATS=[
+  {key:'GAMEPLAY', ic:'🎮', rows:[
+    {key:'difficulty', label:'Difficulty', type:'option', opts:['EASY','NORMAL','HARD']},
+    {key:'autoCam', label:'Auto-Center Camera (Vehicle)', type:'toggle'},
+    {key:'invertY', label:'Invert Look', type:'toggle'},
+    {key:'minimap', label:'Minimap', type:'option', opts:['ON','OFF']},
+    {key:'units', label:'Measurement System', type:'option', opts:['MPH','KMH']},
+  ]},
+  {key:'DISPLAY', ic:'🖥️', rows:[
+    {key:'fullscreen', label:'Fullscreen', type:'toggle'},
+    {key:'camDefault', label:'Default Camera Distance', type:'option', opts:['NEAR','MID','FAR']},
+  ]},
+  {key:'GRAPHICS', ic:'🖼️', rows:[
+    {key:'shadows', label:'Shadow Quality', type:'option', opts:['HIGH','LOW','OFF']},
+    {key:'drawDist', label:'Draw Distance', type:'option', opts:['NEAR','MED','FAR']},
+  ]},
+  {key:'AUDIO', ic:'🔊', rows:[
+    {key:'masterVol', label:'Master Volume', type:'percent'},
+    {key:'musicVol', label:'Music Volume', type:'percent'},
+    {key:'sfxVol', label:'SFX Volume', type:'percent'},
+  ]},
+  {key:'CONTROLS', ic:'🎮', rows:[
+    {key:'vibration', label:'Vibration', type:'toggle'},
+    {key:'steerSens', label:'Steering Sensitivity', type:'level', opts:['LOW','NORMAL','HIGH'], vals:[0.7,1.0,1.4]},
+    {key:'lookSens', label:'Look Sensitivity', type:'level', opts:['LOW','NORMAL','HIGH'], vals:[0.7,1.0,1.4]},
+    {info:'RT / W — Accelerate    ·    LT / S — Brake · Reverse'},
+    {info:'RB / Space — Handbrake (drift)'},
+    {info:'Y / F — Enter · Exit vehicle'},
+    {info:'A — Sprint    ·    X / Space — Jump'},
+    {info:'L3 / G — Horn    ·    View / V — Camera mode'},
+    {info:'D-Pad ◄ — Radio    ·    D-Pad ► — Headlights'},
+  ]},
+];
+let setCat=0, setRow=0, settingsReturn='play';
+function catIndex(k){ return CATS.findIndex(c=>c.key===k); }
+function selectableRows(){ return CATS[setCat].rows.map((r,i)=>i).filter(i=>!CATS[setCat].rows[i].info); }
+function rowVal(r){
+  if(r.type==='toggle') return `<div class="toggle ${SET[r.key]?'on':''}"><i></i></div>`;
+  if(r.type==='percent') return `<span class="arrow">‹</span><span class="val">${Math.round(SET[r.key]*100)}%</span><span class="arrow">›</span>`;
+  if(r.type==='level'){ const i=r.vals.indexOf(SET[r.key]); return `<span class="arrow">‹</span><span class="val">${r.opts[i<0?1:i]}</span><span class="arrow">›</span>`; }
+  return `<span class="arrow">‹</span><span class="val">${SET[r.key]}</span><span class="arrow">›</span>`;
+}
+function renderCats(){ el('setCats').innerHTML=CATS.map((c,i)=>
+  `<div class="catItem ${i===setCat?'sel':''}"><span class="ic">${c.ic}</span>${c.key}</div>`).join(''); }
+function renderRows(){ el('setPanelTitle').textContent=CATS[setCat].key;
+  el('setRows').innerHTML=CATS[setCat].rows.map((r,i)=> r.info
+    ? `<div class="setRow" style="opacity:.7;border:none"><span class="lab" style="font-size:min(2vw,16px);color:#b9a8d6">${r.info}</span></div>`
+    : `<div class="setRow ${i===setRow?'sel':''}"><span class="lab">${r.label}</span><span class="ctl">${rowVal(r)}</span></div>`).join(''); }
+function changeRow(dir){ const r=CATS[setCat].rows[setRow]; if(!r||r.info) return;
+  if(r.type==='toggle') SET[r.key]=!SET[r.key];
+  else if(r.type==='percent') SET[r.key]=clamp(Math.round((SET[r.key]+dir*0.1)*10)/10,0,1);
+  else if(r.type==='level'){ let i=r.vals.indexOf(SET[r.key]); if(i<0)i=1; i=clamp(i+dir,0,r.vals.length-1); SET[r.key]=r.vals[i]; }
+  else { let i=r.opts.indexOf(SET[r.key]); i=(i+dir+r.opts.length)%r.opts.length; SET[r.key]=r.opts[i]; }
+  applyOne(r.key); saveSet(); renderRows(); Audio.blip(880,0.05,'sine',0.15);
+}
+function openSettings(ret, cat){ settingsReturn=ret; setCat=cat||0; setRow=selectableRows()[0]||0;
+  State.mode='pause'; el('title').classList.add('hidden'); el('pause').classList.remove('hidden');
+  Audio.engine(0,false); Audio.siren(false); Audio.screech(0); Audio.horn(false);
+  renderCats(); renderRows(); }
+function closeSettings(){ el('pause').classList.add('hidden');
+  if(settingsReturn==='home'){ State.mode='title'; el('title').classList.remove('hidden'); renderHome(); }
+  else { State.mode='play'; Audio.resume(); } }
+function navSettings(){
+  const d=Nav.dir(); const rows=selectableRows();
+  if(d==='up'){ const p=rows.indexOf(setRow); setRow=rows[(p-1+rows.length)%rows.length]; renderRows(); Audio.blip(660,0.04,'sine',0.1); }
+  else if(d==='down'){ const p=rows.indexOf(setRow); setRow=rows[(p+1)%rows.length]; renderRows(); Audio.blip(660,0.04,'sine',0.1); }
+  else if(d==='left') changeRow(-1);
+  else if(d==='right') changeRow(1);
+  if(Nav.confirm()) changeRow(1);
+  if(Nav.catPrev()){ setCat=(setCat-1+CATS.length)%CATS.length; setRow=selectableRows()[0]||0; renderCats(); renderRows(); }
+  if(Nav.catNext()){ setCat=(setCat+1)%CATS.length; setRow=selectableRows()[0]||0; renderCats(); renderRows(); }
+  if(Nav.back()||Input.start()) closeSettings();
+}
+
+// ========================= START / PAUSE =========================
+function startGame(){ Audio.init(); Audio.resume(); Audio.setVol(SET.masterVol,SET.sfxVol);
+  fadeOutMusic(); el('title').classList.add('hidden'); el('pause').classList.add('hidden'); el('hud').classList.remove('hidden');
+  if(SET.fullscreen) setFullscreen(true);
+  State.mode='play'; renderCash(); renderStars(); if(!State.mission) startMission(); }
+function pause(){ openSettings('play'); }
+function onPad(c){ el('newsBody') && (el('newsBody').innerHTML = c
+  ? '🎮 <b style="color:#39ff88">Controller connected</b> — you\'re ready to drive.'
+  : 'Welcome to Neon Drive: Leonida — built for TV &amp; Xbox controller.'); }
+
+function menuLoop(){ requestAnimationFrame(menuLoop);
+  if(State.mode==='title') navHome();
+  else if(State.mode==='pause') navSettings(); }
+
 addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
 
-// =========================================================================
-//  BOOT
-// =========================================================================
-Input.init();
+// ========================= LOADING SCREEN =========================
+const LOAD_IMGS=['load1_offroad','load2_supra','load3_lambo','load4_katana','load5_boat','load6_challenger','load7_garage','load8_moto'];
+const LOAD_TIPS=[
+  '🌴 <b>TIP:</b> Press <span class="key">Y</span> to jack any car — your ride stays parked (green dot) when you leave it.',
+  '🏁 <b>TIP:</b> Hit a ramp at speed to catch big air. Land it for a rush.',
+  '🚔 <b>TIP:</b> Hit pedestrians or ram traffic and you\'ll earn ★ — the cops will come.',
+  '💵 <b>TIP:</b> Grab glowing gold coins on the roads for quick cash.',
+  '📻 <b>TIP:</b> Tap <span class="key">D-Pad ◄</span> to change the radio station.',
+  '📷 <b>TIP:</b> Press <span class="key">View</span> to switch between near, mid and far cameras.',
+  '📦 <b>TIP:</b> Deliver packages from the yellow marker to the green one for big payouts.',
+];
+function pickInt(seed){ return Math.floor((Math.sin(seed*97.13)*0.5+0.5)*1e6); }
+
+// ========================= BOOT =========================
+Input.init(); loadSet();
 (async function boot(){
-  const bar=el('loadbar');
-  await loadAssets((p,k)=>{ bar.style.width=Math.round(p*100)+'%'; el('loadtext').textContent='LOADING '+k.toUpperCase().replace(/_/g,' '); });
-  el('loadtext').textContent='BUILDING THE CITY…';
+  const t0=performance.now();
+  // random art + tip for this load (seeded off time-of-boot bits we already have)
+  const seed=(performance.now()%1000)+1;
+  el('loading').style.backgroundImage=`url(./assets/loading/${LOAD_IMGS[pickInt(seed)%LOAD_IMGS.length]}.webp)`;
+  el('loadtip').innerHTML=LOAD_TIPS[pickInt(seed*1.7)%LOAD_TIPS.length];
+  el('title').style.backgroundImage=`url(./assets/loading/${LOAD_IMGS[pickInt(seed*2.3)%LOAD_IMGS.length]}.webp)`;
+  el('pause').style.backgroundImage=el('title').style.backgroundImage;
+  const bar=el('loadbar'), pct=el('loadpct');
+  const setP=(p)=>{ const v=Math.round(p*100); bar.style.width=v+'%'; pct.textContent=v+'%'; };
+  await loadAssets((p,k)=>{ setP(p*0.9); el('loadtext').innerHTML='LOADING <b>'+k.toUpperCase().replace(/_/g,' ')+'</b>…'; });
+  el('loadtext').innerHTML='BUILDING <b>LEONIDA</b>…'; setP(0.94);
   attachPlayerCharacter();
   buildWorld(); spawnCoins();
   for(let i=0;i<CFG.traffic;i++) spawnTraffic();
   for(let i=0;i<CFG.peds;i++) spawnPed();
-  // spawn player already in a sports car on the central road
   playerCar=new Car('car_sports', CFG.road*0.24, 0, false); playerCar.heading=0; playerCar.integrate(0.0001);
   player.inCar=playerCar; player.mesh.visible=false;
   cam.yaw=0; camera.position.set(0,12,-22);
-  State.mode='title'; el('title').classList.remove('hidden'); el('loading').style.display='none';
-  musicWanted=true; tryTitleMusic(); // starts on first input if autoplay is blocked
+  applyAll(); setP(1); el('loadtext').innerHTML='READY';
+  // keep the artwork up for a beat so it's actually seen, then reveal the home menu
+  const MIN=2600, wait=Math.max(0, MIN-(performance.now()-t0));
+  setTimeout(()=>{ el('loading').style.transition='opacity .5s'; el('loading').style.opacity='0';
+    setTimeout(()=>{ el('loading').style.display='none'; }, 520);
+    State.mode='title'; el('title').classList.remove('hidden'); homeSel=0; renderHome(); onPad(!!Input.gp()); tryMusic();
+  }, wait);
   menuLoop(); requestAnimationFrame(animate);
 })();
 
 // debug hook for automated testing (harmless)
-window.__dbg={player,traffic,peds,parked,State,coins,ramps,colliders,startGame,enterCar,exitCar,addWanted,nearestCar,PROTO,MANIFEST,CHAR_PROTO,Character,KIT,Radio,CAM_MODES,cam,scene,camera,playerCarRef:()=>playerCar};
+window.__dbg={player,traffic,peds,parked,State,coins,ramps,colliders,startGame,pause,openSettings,closeSettings,changeRow,navHome,SET,HOME_ITEMS,CATS,setSel:(c,r)=>{setCat=c;setRow=r;},homeSelRef:()=>homeSel,setHomeSel:(v)=>{homeSel=v;renderHome();},enterCar,exitCar,addWanted,nearestCar,PROTO,MANIFEST,CHAR_PROTO,Character,KIT,Radio,CAM_MODES,cam,scene,camera,titleMusic,playerCarRef:()=>playerCar};
 </script>
 </body>
 </html>
