@@ -526,7 +526,8 @@ async function loadAssets(onProgress){
 const CAR_BODIES={ car_compact:'Compact_Body', car_coupe:'Coupe_Body', car_hatch:'Hatchback_Body',
   car_minivan:'minivan_body', car_offroad:'Offroad_Body', car_pickup:'Pickup_Body',
   car_sedan:'Sedan_Body', car_sport:'Sport_body', car_suv:'SUV_Body', car_wagon:'Wagon_Body' };
-const CAR_YAW = Math.PI; // flip so the modelled front faces +Z (physics forward); tuned by render test
+const CAR_YAW = 0; // per-car rotation below aligns each model's front to +Z (physics forward)
+const CAR_FLIP={}; // per-key extra 180° flips for models whose front faced the other way (set after render check)
 function extractCars(pack){
   pack.updateWorldMatrix(true,true);
   const wheels=[]; pack.traverse(o=>{ if(/^Wheel_[A-Za-z]\d*$/.test(o.name)) wheels.push(o); });
@@ -544,8 +545,8 @@ function extractCars(pack){
     const holder=new THREE.Group(); holder.add(grp);
     holder.updateMatrixWorld(true);
     let box=new THREE.Box3().setFromObject(holder), size=new THREE.Vector3(); box.getSize(size);
-    if(size.x>size.z) holder.rotation.y=Math.PI/2;   // this car was modelled facing X → turn it to face Z
-    holder.rotation.y+=CAR_YAW;                       // global front/back flip
+    if(size.x>size.z) holder.rotation.y=-Math.PI/2;  // modelled facing +X → -90° turns its front to +Z
+    holder.rotation.y+=CAR_YAW+(CAR_FLIP[key]||0);    // per-car flip for any that still face -Z
     holder.updateMatrixWorld(true); box=new THREE.Box3().setFromObject(holder); box.getSize(size);
     const s=size.z>0.001?4.6/size.z:1; holder.scale.setScalar(s); holder.updateMatrixWorld(true);
     box=new THREE.Box3().setFromObject(holder); const ctr=new THREE.Vector3(); box.getCenter(ctr);
