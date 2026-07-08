@@ -122,13 +122,15 @@
 <script type="importmap">
 { "imports": {
   "three": "./vendor/three.module.js",
-  "three/addons/loaders/GLTFLoader.js": "./vendor/GLTFLoader.js"
+  "three/addons/loaders/GLTFLoader.js": "./vendor/GLTFLoader.js",
+  "three/addons/utils/SkeletonUtils.js": "./vendor/SkeletonUtils.js"
 } }
 </script>
 
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 
 /* =========================================================================
    NEON DRIVE — GTA-style open-world sandbox (Three.js + GLB asset packs)
@@ -293,12 +295,74 @@ const MANIFEST = {
   coin:        {file:'pickup_gold_coin.glb',         fit:{fitAxis:'max',fitSize:1.4},kind:'pickup'},
 };
 const PROTO={};
+// Rigged people (Quaternius Universal Base Characters, CC0) — loaded as-is (already Y-up, ~1.75m)
+const CHAR_FILES={ male:'char_male.glb', female:'char_female.glb' };
+const CHAR_PROTO={};
 async function loadAssets(onProgress){
-  const keys=Object.keys(MANIFEST); let done=0;
+  const keys=Object.keys(MANIFEST); const total=keys.length+Object.keys(CHAR_FILES).length; let done=0;
   for(const k of keys){
     try{ const s=await loadGLB('./assets/'+MANIFEST[k].file); PROTO[k]=prepareModel(s,MANIFEST[k].fit); }
     catch(e){ console.warn('asset failed',k,e); PROTO[k]=null; }
-    done++; onProgress(done/keys.length, k);
+    done++; onProgress(done/total, k);
+  }
+  for(const [k,f] of Object.entries(CHAR_FILES)){
+    try{ const s=await loadGLB('./assets/'+f);
+      s.traverse(o=>{ if(o.isMesh||o.isSkinnedMesh){ o.castShadow=true; o.receiveShadow=false; } });
+      CHAR_PROTO[k]=s; }
+    catch(e){ console.warn('character failed',k,e); CHAR_PROTO[k]=null; }
+    done++; onProgress(done/total, k);
+  }
+}
+
+// ---- Rigged character instance with procedural walk cycle ----
+const SKIN_TONES=[0xffffff,0xf2c9a0,0xd9a878,0xb07d52,0x8a5a38];
+const CLOTH_TINTS=[0xff2d95,0x00e5ff,0xffd23f,0x7b2dff,0x39ff88,0xff6b3d,0xffffff,0x333344];
+class Character {
+  constructor(kind, opts={}){
+    this.group=new THREE.Group();
+    const proto=CHAR_PROTO[kind]||CHAR_PROTO.male;
+    if(!proto){ // fallback capsule if character failed to load
+      const t=new THREE.Mesh(new THREE.CapsuleGeometry(0.35,0.9,4,8),new THREE.MeshStandardMaterial({color:0x22d3a5}));
+      t.position.y=1.05; t.castShadow=true; this.group.add(t); this.bones=null; return;
+    }
+    const rig=skeletonClone(proto);
+    // per-instance materials so tints don't leak between clones; vary peds by skin tone
+    rig.traverse(o=>{ if(o.isSkinnedMesh&&o.material){ o.material=o.material.clone();
+      if(opts.skinTint&&/superhero|retopology|face/i.test(o.name)) o.material.color.setHex(opts.skinTint);
+    } });
+    this.group.add(rig);
+    this.bones={};
+    rig.traverse(o=>{ if(o.isBone) this.bones[o.name]=o; });
+    this.base={};
+    for(const n of ['thigh_l','thigh_r','calf_l','calf_r','upperarm_l','upperarm_r','lowerarm_l','lowerarm_r','spine_01','Head']){
+      if(this.bones[n]) this.base[n]=this.bones[n].rotation.clone();
+    }
+    this.relax();
+    if(opts.clothTint!=null){ // colored visor cap so peds read distinctly from afar
+      const cap=new THREE.Mesh(new THREE.SphereGeometry(0.115,10,8,0,TAU,0,Math.PI/2),
+        new THREE.MeshStandardMaterial({color:opts.clothTint,roughness:.6}));
+      cap.position.set(0,1.72,0); cap.castShadow=true; this.group.add(cap);
+    }
+  }
+  relax(){ // T-pose -> arms down at sides
+    const b=this.bones; if(!b) return;
+    if(b.upperarm_l) b.upperarm_l.rotation.z=this.base.upperarm_l.z-1.15;
+    if(b.upperarm_r) b.upperarm_r.rotation.z=this.base.upperarm_r.z+1.15;
+    if(b.lowerarm_l) b.lowerarm_l.rotation.z=this.base.lowerarm_l.z-0.12;
+    if(b.lowerarm_r) b.lowerarm_r.rotation.z=this.base.lowerarm_r.z+0.12;
+  }
+  // phase advances outside; intensity 0..1 (0 = standing)
+  walk(phase, intensity){
+    const b=this.bones; if(!b) return;
+    const s=Math.sin(phase), c=Math.sin(phase+Math.PI); const k=intensity;
+    if(b.thigh_l) b.thigh_l.rotation.x=this.base.thigh_l.x + s*0.55*k;
+    if(b.thigh_r) b.thigh_r.rotation.x=this.base.thigh_r.x + c*0.55*k;
+    if(b.calf_l)  b.calf_l.rotation.x =this.base.calf_l.x  + Math.max(0,-s)*0.7*k;
+    if(b.calf_r)  b.calf_r.rotation.x =this.base.calf_r.x  + Math.max(0,-c)*0.7*k;
+    if(b.upperarm_l) b.upperarm_l.rotation.x=this.base.upperarm_l.x + c*0.35*k;
+    if(b.upperarm_r) b.upperarm_r.rotation.x=this.base.upperarm_r.x + s*0.35*k;
+    if(b.spine_01) b.spine_01.rotation.x=this.base.spine_01.x + 0.05*k;
+    this.group.position.y=Math.abs(Math.sin(phase))*0.05*k;
   }
 }
 function inst(key){ const p=PROTO[key]; if(!p) return new THREE.Group(); const c=p.clone(true); c.userData.dim=p.userData.dim; return c; }
@@ -437,14 +501,12 @@ class Car {
 // =========================================================================
 //  PLAYER (on foot)
 // =========================================================================
-const player={ pos:new THREE.Vector3(0,0,0), heading:0, mesh:null, speed:0, inCar:null };
-{ const g=new THREE.Group();
-  const t=new THREE.Mesh(new THREE.CapsuleGeometry(0.4,0.9,4,8),new THREE.MeshStandardMaterial({color:0x22d3a5,roughness:.6})); t.position.y=1.1; t.castShadow=true; g.add(t);
-  const h=new THREE.Mesh(new THREE.SphereGeometry(0.34,12,12),new THREE.MeshStandardMaterial({color:0xf1c9a5,roughness:.7})); h.position.y=1.95; h.castShadow=true; g.add(h);
-  const lm=new THREE.MeshStandardMaterial({color:0x223,roughness:.8});
-  const lL=new THREE.Mesh(new THREE.CapsuleGeometry(0.16,0.5,4,6),lm); lL.position.set(-0.2,0.35,0);
-  const rL=new THREE.Mesh(new THREE.CapsuleGeometry(0.16,0.5,4,6),lm); rL.position.set(0.2,0.35,0);
-  g.add(lL,rL); g.userData.legs=[lL,rL]; player.mesh=g; scene.add(g); }
+const player={ pos:new THREE.Vector3(0,0,0), heading:0, mesh:new THREE.Group(), speed:0, inCar:null, char:null };
+scene.add(player.mesh);
+function attachPlayerCharacter(){ // called in boot() once CHAR_PROTO is loaded
+  player.char=new Character('male',{});
+  player.mesh.add(player.char.group);
+}
 
 // =========================================================================
 //  TRAFFIC + PEDS
@@ -461,14 +523,15 @@ function updTraffic(c,dt){ const f=c.forward; c.speed=lerp(c.speed,c.ai.cruise,d
   c.pos.set(nx,0,nz); c.mesh.position.set(nx,0,nz); c.mesh.rotation.y=c.heading; }
 function spawnPed(){ let x,z,t=0; const coords=window.__coords||[0];
   do{ const c=pick(coords),d=pick(coords); x=c+rand(CFG.road*0.6,CFG.road*1.2); z=d+rand(CFG.road*0.6,CFG.road*1.2); t++; } while(blocked(x,z,1)&&t<8);
-  const g=new THREE.Group(); const col=new THREE.Color().setHSL(Math.random(),.6,.55);
-  const b=new THREE.Mesh(new THREE.CapsuleGeometry(0.3,0.7,4,6),new THREE.MeshStandardMaterial({color:col,roughness:.8})); b.position.y=0.9; b.castShadow=true; g.add(b);
-  const h=new THREE.Mesh(new THREE.SphereGeometry(0.26,8,8),new THREE.MeshStandardMaterial({color:0xf1c9a5,roughness:.8})); h.position.y=1.55; g.add(h);
-  g.position.set(x,0,z); scene.add(g); peds.push({mesh:g,pos:new THREE.Vector3(x,0,z),heading:rand(0,TAU),speed:rand(1,2.2),t:rand(0,5)}); }
+  const char=new Character(Math.random()<0.5?'male':'female',{ skinTint:pick(SKIN_TONES), clothTint:pick(CLOTH_TINTS) });
+  const g=new THREE.Group(); g.add(char.group);
+  g.position.set(x,0,z); scene.add(g);
+  peds.push({mesh:g,char,pos:new THREE.Vector3(x,0,z),heading:rand(0,TAU),speed:rand(1,2.2),t:rand(0,5),phase:rand(0,TAU)}); }
 function updPed(p,dt){ p.t-=dt; if(p.t<=0){ p.heading+=rand(-1.4,1.4); p.t=rand(2,5); }
   const f=new THREE.Vector3(Math.sin(p.heading),0,Math.cos(p.heading)); let nx=p.pos.x+f.x*p.speed*dt, nz=p.pos.z+f.z*p.speed*dt;
   if(blocked(nx,nz,0.8)||Math.abs(nx)>W-4||Math.abs(nz)>W-4){ p.heading+=Math.PI*0.7; nx=p.pos.x; nz=p.pos.z; }
-  p.pos.set(nx,0,nz); p.mesh.position.set(nx,Math.abs(Math.sin(performance.now()*0.008))*0.06,nz); p.mesh.rotation.y=p.heading; }
+  p.pos.set(nx,0,nz); p.mesh.position.set(nx,0,nz); p.mesh.rotation.y=p.heading;
+  p.phase+=dt*p.speed*4.2; p.char.walk(p.phase, clamp(p.speed/2.2,0.4,1)); }
 
 // =========================================================================
 //  COINS (collectibles)
@@ -597,7 +660,7 @@ function updateFoot(dt){
     player.speed=spd*mag;
   } else player.speed=0;
   player.mesh.position.copy(player.pos); player.mesh.rotation.y=player.heading;
-  const legs=player.mesh.userData.legs, sw=Math.sin(legPhase)*0.5*(player.speed>0.1?1:0); legs[0].rotation.x=sw; legs[1].rotation.x=-sw;
+  if(player.char) player.char.walk(legPhase, player.speed>0.1?clamp(player.speed/7.5,0.45,1):0);
   const c=nearestCar(4.6); if(c){ showPrompt('Enter vehicle'); if(Input.interact()) enterCar(c); } else hidePrompt();
   Audio.engine(0,false);
 }
@@ -655,6 +718,7 @@ Input.init();
   const bar=el('loadbar');
   await loadAssets((p,k)=>{ bar.style.width=Math.round(p*100)+'%'; el('loadtext').textContent='LOADING '+k.toUpperCase().replace(/_/g,' '); });
   el('loadtext').textContent='BUILDING THE CITY…';
+  attachPlayerCharacter();
   buildWorld(); spawnCoins();
   for(let i=0;i<CFG.traffic;i++) spawnTraffic();
   for(let i=0;i<CFG.peds;i++) spawnPed();
@@ -667,7 +731,7 @@ Input.init();
 })();
 
 // debug hook for automated testing (harmless)
-window.__dbg={player,traffic,State,coins,ramps,colliders,startGame,enterCar,exitCar,addWanted,PROTO,MANIFEST,scene,camera,playerCarRef:()=>playerCar};
+window.__dbg={player,traffic,peds,State,coins,ramps,colliders,startGame,enterCar,exitCar,addWanted,PROTO,MANIFEST,CHAR_PROTO,Character,scene,camera,playerCarRef:()=>playerCar};
 </script>
 </body>
 </html>

@@ -76,6 +76,12 @@ screen — steering feels natural on a controller.
 - 3D assets are the included GTA-style `.glb` packs, extracted into `assets/` (110 models; ~25 are
   loaded and used at runtime). Models are authored Z-up and normalized at load (converted to Y-up,
   scaled to real-world sizes, dropped to the ground) via their runtime bounding box.
+- **People** are rigged humanoids from the *Universal Base Characters* kit by
+  [Quaternius](https://quaternius.com) (**CC0 / public domain**, from the repo's `assets-v1`
+  release), repacked into compact GLBs (`char_male.glb`, `char_female.glb`, ~1.2 MB each with
+  512px textures). They're skinned meshes with a full UE-style skeleton; the game lowers the
+  T-pose arms and drives a procedural walk cycle by rotating thigh/calf/arm bones. Peds get
+  random gender, skin tone, and a colored cap for variety; cloning uses `SkeletonUtils`.
 - All game logic (world generation, vehicle physics, AI, wanted/police, missions, camera, HUD, audio)
   lives in `index.html`. No framework, no build step.
 - Audio is synthesized live with the Web Audio API (engine, sirens, pickups, crashes) — no audio files.
@@ -97,4 +103,5 @@ gta6/
 
 This is a **fan-made tribute** and an original game. It is **not affiliated with, endorsed by, or
 connected to Rockstar Games or the Grand Theft Auto series**. "GTA-style" describes the genre and
-aesthetic only. The included `.glb` asset packs are low-poly generic props.
+aesthetic only. The included `.glb` asset packs are low-poly generic props. Character models are
+CC0 by [Quaternius](https://quaternius.com).
