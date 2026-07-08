@@ -1,11 +1,9 @@
 # NEON DRIVE — Leonida 🌴🚗
 
-A **GTA 6-style open-world sandbox** built with [Three.js](https://threejs.org/), designed to be
-played on your **TV with an Xbox controller**. Drive around a neon Miami-style beach city, run
-delivery jobs for cash, cause chaos, and outrun the cops.
-
-It's a **single self-contained folder** — no build step, no internet needed to play. Just open
-`index.html` in a browser.
+A **GTA-style open-world sandbox** built with [Three.js](https://threejs.org/), designed to be
+played on your **TV with an Xbox controller**. You spawn behind the wheel of a sports car in a neon
+sunset city — drive, drift, grab cash, run delivery jobs, and outrun the cops. Uses real low-poly
+**3D `.glb` models** (cars, buildings, palms, props) from the included asset packs.
 
 ![Neon Drive](https://img.shields.io/badge/Three.js-open%20world-ff2d95) ![Controller](https://img.shields.io/badge/🎮-Xbox%20ready-00e5ff)
 
@@ -13,31 +11,26 @@ It's a **single self-contained folder** — no build step, no internet needed to
 
 ## ▶️ How to play on your TV
 
-You need a browser on (or connected to) your TV, and an Xbox controller.
+The game loads 3D models with ES modules, so it must be **served over HTTP(S)** — opening the raw
+file with `file://` won't work. Easiest options:
 
-**Easiest — PC/laptop plugged into the TV via HDMI:**
-1. Connect your computer to the TV with an HDMI cable (or cast the browser tab).
-2. Pair your Xbox controller (USB cable, or Bluetooth: hold the pair button until the Xbox logo flashes, then add it in your OS Bluetooth settings).
-3. Open `gta6/index.html` in Chrome, Edge, or Firefox.
-4. Press **F11** for fullscreen.
-5. Press **A** on the controller (or **Enter**) to start driving.
+**Play instantly (no download) — hosted link:**
+Open the GitHub-hosted URL of `gta6/index.html` (e.g. via `raw.githack.com` or GitHub Pages) in any
+modern browser, including the **Xbox console's Microsoft Edge** browser. Press **A** to drive.
 
-**On a game console / smart-TV browser:**
-- **Xbox Series X|S / Xbox One:** open the built-in **Microsoft Edge** browser, navigate to the file (put the `gta6` folder on a USB stick or host it — see below), and the controller works automatically.
-- **Smart TVs / Steam Deck / Chromebook:** any modern browser + a paired Xbox controller works the same way.
+**Local — PC/laptop plugged into the TV via HDMI:**
+1. Connect your computer to the TV via HDMI (or cast the tab).
+2. Pair your Xbox controller (USB, or Bluetooth: hold the pair button until the Xbox logo flashes, then add it in your OS Bluetooth settings).
+3. Serve the folder and open it:
+   ```bash
+   cd gta6
+   python3 -m http.server 8080
+   # then open http://localhost:8080  (or http://<this-pc-ip>:8080 from the TV)
+   ```
+4. Press **F11** for fullscreen, then **A** / **Enter** to start.
 
-> The controller is detected automatically through the browser Gamepad API — the title screen
-> will confirm **"Controller connected!"** when it sees it. No drivers or setup needed.
-
-### Hosting it (optional)
-Opening `index.html` directly works because Three.js is bundled locally. If your device won't open
-local files, serve the folder over HTTP from any computer on the same network:
-
-```bash
-cd gta6
-python3 -m http.server 8080
-# then browse to http://<that-computer's-ip>:8080 on the TV
-```
+> The controller is auto-detected through the Gamepad API — the title screen confirms
+> **"Controller connected!"** when it sees it. Give the stick a nudge if it doesn't register at first.
 
 ---
 
@@ -45,47 +38,63 @@ python3 -m http.server 8080
 
 | Xbox | Keyboard | Action |
 |------|----------|--------|
-| **Left Stick** | `W` `A` `S` `D` | Drive / walk |
-| **Right Stick** | Mouse / arrow keys | Look around |
+| **Left Stick** | `A` `D` / `W` `S` | Steer · drive |
 | **RT** | `W` / `↑` | Accelerate |
 | **LT** | `S` / `↓` | Brake · Reverse |
-| **X** | `Space` | Handbrake (drift!) |
+| **A** | `Space` | Handbrake (drift!) |
 | **Y** | `F` | Enter / exit vehicle |
-| **A** | `Shift` | Sprint (on foot) · confirm on menus |
+| **Right Stick** | `Q` `E` / drag mouse | Look around |
+| **A / Enter** | | Confirm on menus |
 | **Start** | `Esc` | Pause |
+
+The chase camera automatically swings behind the car as you drive, so "forward" is always up the
+screen — steering feels natural on a controller.
 
 ---
 
 ## 🌆 What's in the world
 
-- **Open neon city** — a procedurally generated Miami/Vice-style grid with pastel art-deco towers,
-  lit windows, rooftop billboards, palm trees, streetlights, a beach and an animated ocean under a
-  sunset sky.
-- **Drive anything** — walk up to any car and press **Y/F** to jack it. Arcade physics with
-  acceleration, reverse, speed-sensitive steering, and handbrake drifting. Cars collide with buildings.
-- **On-foot mode** — get out and explore on foot; the camera follows you third-person.
-- **Living streets** — AI traffic cruises the roads and pedestrians wander the sidewalks.
-- **Wanted system** — hit peds or ram traffic and you'll earn ★ stars. Police cruisers spawn and
-  chase you; lose them to cool down, or get **busted** and lose cash. (Jacking a police car is an
-  instant 2 stars.)
-- **Delivery jobs** — drive to the glowing **yellow** marker to grab a package, then race it to the
-  **green** drop-off for cash. New job every time. Build up your bankroll.
-- **HUD** — speedometer + gear, cash, wanted stars, a rotating **minimap**, and objective tracker.
+- **Neon sunset city** — a grid of real 3D buildings (apartments, offices, brick shops, a nightclub,
+  warehouses), palm trees and street lamps, lane-marked roads, under a sunset-sky shader.
+- **You start in a car** on a central road — straight into the action, no wandering.
+- **Arcade driving** — punchy acceleration, reverse, speed-sensitive steering, and handbrake
+  **drifting**. Cars collide with buildings. Hit a **jump ramp** at speed to catch air.
+- **Drive anything** — hop out (**Y/F**), walk up to any other car, and take it.
+- **Cash to grab** — gold coins are scattered along the roads; scoop them up as you drive.
+- **Living streets** — AI traffic cruises the grid and pedestrians wander the sidewalks.
+- **Wanted system** — hit peds or ram traffic to earn ★ stars. Police cruisers spawn and chase you;
+  lose them to cool down, or get **busted** and lose cash. (Jacking a police car is an instant 2 stars.)
+- **Delivery jobs** — drive to the **yellow** marker for a package, then race it to the **green**
+  drop-off for a payout. Endless jobs.
+- **HUD** — speedometer + gear, cash, wanted stars, a north-up **minimap**, and objective tracker.
 
 ---
 
 ## 🛠️ Technical notes
 
-- Pure **Three.js** (r160), vendored locally as `three.min.js` — the game runs fully offline.
-- Everything (world generation, physics, AI, audio, HUD) lives in `index.html`. No frameworks, no build.
+- **Three.js r160** (ES modules) + **GLTFLoader**, all vendored locally under `vendor/` and `utils/`.
+- 3D assets are the included GTA-style `.glb` packs, extracted into `assets/` (110 models; ~25 are
+  loaded and used at runtime). Models are authored Z-up and normalized at load (converted to Y-up,
+  scaled to real-world sizes, dropped to the ground) via their runtime bounding box.
+- All game logic (world generation, vehicle physics, AI, wanted/police, missions, camera, HUD, audio)
+  lives in `index.html`. No framework, no build step.
 - Audio is synthesized live with the Web Audio API (engine, sirens, pickups, crashes) — no audio files.
-- One directional (sun) light with soft shadows; neon is done with emissive materials so it stays
-  fast enough for TV / console GPUs.
+- One directional (sun) light with soft shadows keeps it fast enough for TV / console GPUs.
+
+### Folder layout
+```
+gta6/
+  index.html                 the whole game
+  vendor/three.module.js      Three.js (ESM)
+  vendor/GLTFLoader.js        glTF loader
+  utils/BufferGeometryUtils.js
+  assets/*.glb                110 low-poly models (the included asset packs)
+```
 
 ---
 
 ## ⚖️ Disclaimer
 
 This is a **fan-made tribute** and an original game. It is **not affiliated with, endorsed by, or
-connected to Rockstar Games or the Grand Theft Auto series**. "GTA 6-style" describes the genre and
-aesthetic only. All code and assets here are original/procedural.
+connected to Rockstar Games or the Grand Theft Auto series**. "GTA-style" describes the genre and
+aesthetic only. The included `.glb` asset packs are low-poly generic props.
