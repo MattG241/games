@@ -1,5 +1,18 @@
 # games
 
+## POCKET BRAWL 🥊
+
+A **Super Smash Bros.–style platform fighter for mobile browsers** — one self-contained
+HTML/JS file with touch controls (virtual joystick + attack/special/jump/guard buttons),
+percent-damage knockback, stocks, a CPU rival, and four hand-drawn homage fighters
+(ROCCO, ZAP, LIEF and GORRO). No build step; open `index.html` on your phone in landscape.
+
+➡️ **See [`smash/`](./smash/) to play and for controls.**
+
+> Fan-made tribute to the platform-fighter genre · not affiliated with Nintendo.
+
+---
+
 ## NEON DRIVE — Leonida 🌴🚗
 
 A **GTA 6-style open-world Three.js game** you can play on your **TV with an Xbox controller**.
