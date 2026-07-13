@@ -2,14 +2,17 @@
 
 ## POCKET BRAWL 🥊
 
-A **Super Smash Bros.–style platform fighter for mobile browsers** — one self-contained
-HTML/JS file with touch controls (virtual joystick + attack/special/jump/guard buttons),
-percent-damage knockback, stocks, a CPU rival, and four hand-drawn homage fighters
-(ROCCO, ZAP, LIEF and GORRO). No build step; open `index.html` on your phone in landscape.
+A **Super Smash Bros.–style platform fighter for mobile browsers**, rendered in real 3D with
+Three.js (vendored, no CDN). **20 stylised fan-art fighters** — Spider-Man, Batman, Superman,
+Darth Vader, Mario, Mickey, Pikachu, Bugs Bunny, Sonic, Homer, Godzilla, SpongeBob, Goku,
+Barbie, Scooby-Doo, Optimus, Hello Kitty, Wonder Woman, Tom & Jerry and Kermit — with
+per-character stats and specials, percent-damage knockback, stocks, a CPU rival, touch
+controls, and a Smash-style roster select screen. Serve the folder and open it on your phone
+in landscape.
 
 ➡️ **See [`smash/`](./smash/) to play and for controls.**
 
-> Fan-made tribute to the platform-fighter genre · not affiliated with Nintendo.
+> Fan-made, non-commercial tribute · procedural primitive models, no official assets.
 
 ---
 
