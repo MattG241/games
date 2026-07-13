@@ -9,11 +9,12 @@ vendored locally in [`vendor/`](./vendor/)).
 > entirely from Three.js primitives — not official assets, and not affiliated with any of the
 > characters' rights holders.
 
-## The roster — 20 fighters
+## The roster — 30 fighters
 
 Spider-Man · Batman · Superman · Darth Vader · Mario · Mickey · Pikachu · Bugs Bunny · Sonic ·
 Homer · Godzilla · SpongeBob · Goku · Barbie · Scooby-Doo · Optimus · Hello Kitty ·
-Wonder Woman · Tom & Jerry · Kermit
+Wonder Woman · Tom & Jerry · Kermit · Luffy · Zoro · Kevin · Bob · Bart · Marge · Peter ·
+Stewie · Rick · Morty
 
 Every fighter has its own **speed / jump / weight / power / reach** stats and one of four special
 archetypes with a themed flavour:
@@ -24,6 +25,18 @@ archetypes with a themed flavour:
 | **Bolt** | Fast straight shot | Pikachu's Thunderbolt, Godzilla's Atomic Breath, Superman's Heat Vision |
 | **Spin** | 360° melee whirlwind | Sonic's Spin Dash, Vader's Force Slam, Wonder Woman's Lasso Whirl |
 | **Quake** | Twin ground shockwaves (aerial: slam dive) | Homer's Belly Flop, Scooby Stomp, Tom & Jerry's Anvil Panic |
+
+## The stages
+
+| Stage | Vibe | Layout |
+|---|---|---|
+| **SUNSET ISLE** | Classic battlefield at golden hour | 3 platforms |
+| **MAGMA KEEP** | Lava sea, ember rain, glowing volcano | 2 wide low platforms |
+| **NEON CITY** | Night skyline, moon and stars | 1 centre platform |
+| **SKY SHRINE** | Above the cloud sea, golden temple | 3 staggered platforms |
+
+Pick your stage from the row under the roster — each has its own sky, lighting,
+scenery, platform layout **and battle theme**.
 
 ## How to play
 
@@ -59,4 +72,7 @@ Keyboard also works for desktop testing: **arrows/WASD** move, **Space/W** jump,
 - **CPU opponent** with approach/attack/guard/edge-recovery AI
 - Dynamic **camera** that pans and zooms to frame both fighters
 - Procedural character animation: run lean, attack lunge, tumble spins, landing squash
-- WebAudio **sound effects** (no audio files)
+- Procedural **chiptune soundtrack** — a menu theme plus a distinct battle track per stage,
+  synthesized live with WebAudio (mute toggle on the select and pause screens)
+- WebAudio **sound effects** (no audio files): hits, whooshes, shields breaking, KO blasts,
+  READY/GO countdown, stock-lost sting, victory jingle
