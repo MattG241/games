@@ -287,8 +287,61 @@ function eye(parent,x,y,z=.78,scale=.22,pupil=true){
   sphere(parent,[x,y,z],[scale,scale*1.2,.08],C.white);
   if(pupil) sphere(parent,[x,y,z+.08],[scale*.38,scale*.5,.05],C.black);
 }
+// Limbs are built inside a pivot group anchored at the joint (shoulder/hip)
+// so they can swing for walk/attack animation. While RIG collection is
+// active, arm- and leg-sized limbs register themselves for animation.
+let RIG=null;
 function limb(parent,p,len,color,rotZ=0,radius=.18){
-  return capsule(parent,p,radius,len,color,[0,0,rotZ]);
+  const half=len/2+radius;
+  const jx=p[0]-Math.sin(rotZ)*half, jy=p[1]+Math.cos(rotZ)*half;   // joint (top end)
+  const tx=p[0]+Math.sin(rotZ)*half, ty=p[1]-Math.cos(rotZ)*half;   // tip (far end)
+  const pivot=new THREE.Group();
+  pivot.position.set(jx,jy,p[2]);
+  parent.add(pivot);
+  const c=add(pivot,new THREE.CapsuleGeometry(radius,len,6,12),mat(color),[p[0]-jx,p[1]-jy,0],[1,1,1],[0,0,rotZ]);
+  if(RIG && len>=.4 && radius>=.08){
+    const type=p[1]>-.2?'arms':'legs';
+    RIG[type].push({pivot,x:p[0],jx,jy,z:p[2],tip:[tx,ty,p[2]]});
+  }
+  return c;
+}
+// Same idea for box-shaped limbs (robots): pivot at the top of the box.
+function boxLimb(parent,p,s,color,opts={}){
+  const pivot=new THREE.Group();
+  pivot.position.set(p[0],p[1]+s[1]/2,p[2]);
+  parent.add(pivot);
+  add(pivot,new THREE.BoxGeometry(1,1,1),mat(color,opts),[0,-s[1]/2,0],s);
+  if(RIG){
+    const type=p[1]>-.2?'arms':'legs';
+    RIG[type].push({pivot,x:p[0],jx:p[0],jy:p[1]+s[1]/2,z:p[2],tip:[p[0],p[1]-s[1]/2,p[2]]});
+  }
+  return pivot;
+}
+// After a model is built, sweep loose end-parts (gloves, shoes, socks,
+// bracelets, held props) into the limb pivot whose tip they sit on.
+function rigAttachLoose(){
+  if(!RIG) return;
+  const v=new THREE.Vector3();
+  for(const l of [...RIG.arms,...RIG.legs]){
+    const parent=l.pivot.parent;
+    for(const m of [...parent.children]){
+      if(m===l.pivot||m.userData.rigged) continue;
+      if(m.isGroup && !m.userData.prop) continue;
+      if(!m.isGroup){
+        if(!m.geometry) continue;
+        m.geometry.computeBoundingBox();
+        const bs=m.geometry.boundingBox.getSize(v);
+        const maxd=Math.max(bs.x*Math.abs(m.scale.x),bs.y*Math.abs(m.scale.y),bs.z*Math.abs(m.scale.z));
+        if(maxd>.92) continue;
+      }
+      const d=Math.hypot(m.position.x-l.tip[0],m.position.y-l.tip[1],m.position.z-l.tip[2]);
+      if(d<.6){
+        m.userData.rigged=true;
+        m.position.x-=l.jx; m.position.y-=l.jy; m.position.z-=l.z;
+        l.pivot.add(m);
+      }
+    }
+  }
 }
 function glove(parent,p,s=.32,color=C.white){sphere(parent,p,[s,s*.9,s],color)}
 function shoe(parent,p,color=C.black,s=[.38,.2,.62]){sphere(parent,p,s,color)}
@@ -452,8 +505,9 @@ function bugsBunny(){
   glove(g,[-.88,-.05,0],.22,C.white); glove(g,[.88,-.05,0],.22,C.white);
   limb(g,[-.25,-.75,0],.7,0x8f949d,0,.18); limb(g,[.25,-.75,0],.7,0x8f949d,0,.18);
   shoe(g,[-.28,-1.24,.2],C.white,[.34,.18,.55]); shoe(g,[.28,-1.24,.2],C.white,[.34,.18,.55]);
-  cone(g,[.95,.25,.2],[.17,.62,.17],C.orange,[0,0,-.55]);
-  for(const a of [-.3,0,.3]) capsule(g,[1.16,.56,.2],.04,.28,C.green,[0,0,a-.55]);
+  const carrot=new THREE.Group(); carrot.position.set(.95,.25,.2); carrot.userData.prop=true; g.add(carrot);
+  cone(carrot,[0,0,0],[.17,.62,.17],C.orange,[0,0,-.55]);
+  for(const a of [-.3,0,.3]) capsule(carrot,[.21,.31,0],.04,.28,C.green,[0,0,a-.55]);
   return g;
 }
 function sonic(){
@@ -581,15 +635,15 @@ function scooby(){
 }
 function optimus(){
   const g=new THREE.Group();
-  box(g,[-.3,-.67,0],[.42,1.35,.46],0x2057b4,[0,0,0],{metalness:.45});
-  box(g,[.3,-.67,0],[.42,1.35,.46],0x2057b4,[0,0,0],{metalness:.45});
+  boxLimb(g,[-.3,-.67,0],[.42,1.35,.46],0x2057b4,{metalness:.45});
+  boxLimb(g,[.3,-.67,0],[.42,1.35,.46],0x2057b4,{metalness:.45});
   shoe(g,[-.3,-1.38,.18],0x4a5664,[.42,.2,.58]); shoe(g,[.3,-1.38,.18],0x4a5664,[.42,.2,.58]);
   box(g,[0,.45,0],[1.15,1.15,.55],0xb5262f,[0,0,0],{metalness:.42});
   box(g,[-.3,.55,.32],[.42,.52,.08],0x7ce9ff,[0,0,0],{metalness:.2,emissive:0x246a7c,emissiveIntensity:.7});
   box(g,[.3,.55,.32],[.42,.52,.08],0x7ce9ff,[0,0,0],{metalness:.2,emissive:0x246a7c,emissiveIntensity:.7});
   box(g,[0,.03,.34],[.3,.24,.08],0xcbd2db,[0,0,0],{metalness:.8});
-  box(g,[-.78,.46,0],[.38,1.08,.42],0xb5262f,[0,0,.08],{metalness:.42});
-  box(g,[.78,.46,0],[.38,1.08,.42],0xb5262f,[0,0,-.08],{metalness:.42});
+  boxLimb(g,[-.78,.46,0],[.38,1.08,.42],0xb5262f,{metalness:.42});
+  boxLimb(g,[.78,.46,0],[.38,1.08,.42],0xb5262f,{metalness:.42});
   box(g,[-.87,-.14,0],[.34,.35,.38],0x4a5664,[0,0,0],{metalness:.7});
   box(g,[.87,-.14,0],[.34,.35,.38],0x4a5664,[0,0,0],{metalness:.7});
   box(g,[0,1.63,0],[.68,.72,.58],0x2057b4,[0,0,0],{metalness:.5});
@@ -853,7 +907,10 @@ function updateSwooshes(){
 
 // ---- model prep: normalize a built character to its fighter height
 function buildModel(ch){
+  RIG={arms:[],legs:[]};
   const raw=ch.build();
+  rigAttachLoose();
+  const rig=RIG; RIG=null;
   const bb=new THREE.Box3().setFromObject(raw);
   const size=bb.getSize(new THREE.Vector3());
   const s=(ch.height/10)/size.y;
@@ -862,6 +919,7 @@ function buildModel(ch){
   const c=bb2.getCenter(new THREE.Vector3());
   raw.position.x-=c.x; raw.position.z-=c.z; raw.position.y-=bb2.min.y;
   const wrap=new THREE.Group(); wrap.add(raw);   // wrap = animation node (feet at local 0,0,0)
+  wrap.userData.rig=rig;
   return wrap;
 }
 function disposeObject(root){
@@ -972,6 +1030,9 @@ class Fighter{
     this.rig=new THREE.Group();
     this.model=buildModel(ch);
     this.rig.add(this.model);
+    const limbRig=this.model.userData.rig||{arms:[],legs:[]};
+    this.arms=limbRig.arms.slice().sort((a,b)=>a.x-b.x).map(l=>l.pivot);
+    this.legs=limbRig.legs.slice().sort((a,b)=>a.x-b.x).map(l=>l.pivot);
     this.bubble=new THREE.Mesh(new THREE.SphereGeometry(ch.height/14,18,18),
       new THREE.MeshBasicMaterial({color:0x62b8ff,transparent:true,opacity:.34,depthWrite:false}));
     this.bubble.visible=false; this.rig.add(this.bubble);
@@ -1101,6 +1162,32 @@ class Fighter{
              angle:this.aerial?-0.9:-0.55 };
   }
 
+  // swing arm/leg pivots for walk, punch, jump, tumble and idle poses
+  animateLimbs(t){
+    const swing=Math.sin(this.phase)*.78*this.run;
+    this.legs.forEach((p,i)=>{
+      let r;
+      if(this.hitstun>0)      r=Math.sin(t*25+i*2.1)*.7;                     // flail
+      else if(!this.grounded) r=(i%2?-.45:.3)+clamp(this.vy*.015,-.2,.25);   // tuck
+      else                    r=(i%2?-1:1)*swing;                            // stride
+      p.rotation.x=lerp(p.rotation.x,r,.5);
+    });
+    this.arms.forEach((p,i)=>{
+      let r;
+      const lead = this.facing>0 ? i===this.arms.length-1 : i===0;
+      if(this.hitstun>0)        r=Math.sin(t*25+1.5+i*2.1)*.9;               // flail
+      else if(this.specialT>=0) r=-2.3+Math.sin(this.specialT*Math.PI)*.55;  // charge overhead
+      else if(this.attackT>=0){                                              // punch!
+        const prog=Math.min(1,this.attackT*1.4);
+        r=lead ? lerp(-2.3,.55,prog) : -(1-prog)*.5;
+      }
+      else if(!this.grounded)   r=-.75+(i%2?.22:-.18);                       // arms up in air
+      else if(this.shielding)   r=-.5;                                       // guard tuck
+      else                      r=(i%2?-1:1)*swing*.85 + Math.sin(t*2.1)*.05;// stride / idle sway
+      p.rotation.x=lerp(p.rotation.x,r,.45);
+    });
+  }
+
   // sync physics → 3D rig with procedural animation
   syncModel(t){
     if(this.dead) return;
@@ -1108,6 +1195,7 @@ class Fighter{
     const targetYaw=this.facing>0 ? Math.PI/2-0.32 : -Math.PI/2+0.32;
     this.yaw=lerp(this.yaw,targetYaw,.25);
     this.rig.rotation.y=this.yaw;
+    this.animateLimbs(t);
 
     const m=this.model;
     if(this.hitstun>0){                      // tumble
@@ -1115,10 +1203,10 @@ class Fighter{
       m.position.y=.3;
     } else {
       m.rotation.z=lerp(m.rotation.z,0,.4);
-      let pitch=this.run*.22;
-      if(this.attackT>=0) pitch+=Math.sin(Math.min(1,this.attackT*1.4)*Math.PI)*.5;
+      let pitch=this.run*.2;
+      if(this.attackT>=0) pitch+=Math.sin(Math.min(1,this.attackT*1.4)*Math.PI)*.32;
       if(!this.grounded) pitch-=clamp(this.vy*.02,-.25,.3);
-      if(this.specialT>=0) pitch+=Math.sin(this.specialT*Math.PI)*.3;
+      if(this.specialT>=0) pitch+=Math.sin(this.specialT*Math.PI)*.22;
       m.rotation.x=pitch;
       m.position.y=Math.abs(Math.sin(this.phase))*.28*this.run + Math.sin(t*2.2)*.05;
     }
