@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <version>1</version>
+    <category title="System" />
+    <item drawable="phone" />
+    <item drawable="messages" />
+    <item drawable="camera" />
+    <item drawable="photos" />
+    <item drawable="settings" />
+    <item drawable="chrome" />
+    <item drawable="gmail" />
+    <item drawable="google_maps" />
+    <item drawable="youtube" />
+    <item drawable="spotify" />
+    <category title="Creative" />
+    <item drawable="photoshop" />
+    <item drawable="lightroom" />
+    <item drawable="canva" />
+    <item drawable="capcut" />
+    <item drawable="snapseed" />
+    <item drawable="vsco" />
+    <item drawable="picsart" />
+    <item drawable="pinterest" />
+    <item drawable="behance" />
+    <item drawable="adobe_express" />
+    <category title="Entertainment" />
+    <item drawable="netflix" />
+    <item drawable="prime_video" />
+    <item drawable="disney_plus" />
+    <item drawable="twitch" />
+    <item drawable="steam" />
+    <item drawable="xbox" />
+    <item drawable="playstation" />
+    <item drawable="soundcloud" />
+    <item drawable="shazam" />
+    <item drawable="audible" />
+</resources>

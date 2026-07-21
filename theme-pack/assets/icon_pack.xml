@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="icon_pack">
+        <item>phone</item><item>messages</item><item>camera</item><item>photos</item><item>settings</item>
+        <item>chrome</item><item>gmail</item><item>google_maps</item><item>youtube</item><item>spotify</item>
+        <item>photoshop</item><item>lightroom</item><item>canva</item><item>capcut</item><item>snapseed</item>
+        <item>vsco</item><item>picsart</item><item>pinterest</item><item>behance</item><item>adobe_express</item>
+        <item>netflix</item><item>prime_video</item><item>disney_plus</item><item>twitch</item><item>steam</item>
+        <item>xbox</item><item>playstation</item><item>soundcloud</item><item>shazam</item><item>audible</item>
+    </string-array>
+</resources>
