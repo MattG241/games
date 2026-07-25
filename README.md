@@ -1,5 +1,19 @@
 # games
 
+## TokFeed 📱
+
+Paste TikTok (or YouTube / direct video) links — or pick video files off your phone — and watch
+them as a full-screen, swipeable vertical feed, with TikTok-style autoplay, mute toggle and
+scrubbing. Extraction runs **in the browser**, so there's no server, no build step and no `yt-dlp`
+to keep running: host it on GitHub Pages and install it to your home screen **entirely from your
+phone**.
+
+➡️ **See [`tokfeed/`](./tokfeed/) for the app and phone-only setup instructions.**
+
+> For personal use. Don't redistribute other people's videos.
+
+---
+
 ## POCKET BRAWL 🥊
 
 A **Super Smash Bros.–style platform fighter for mobile browsers**, rendered in real 3D with
