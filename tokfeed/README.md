@@ -75,7 +75,11 @@ They play in the feed exactly like extracted links — same swipe, autoplay, mut
 
 - Files are stored **in the app** (IndexedDB), so they survive closing the app and reloading —
   you pick them once, not every time.
-- They never leave your phone. There's no server, so nothing is uploaded anywhere.
+- They never leave your phone. There's no server, so nothing is uploaded anywhere. The only
+  network requests TokFeed makes are for *links* you paste; adding a file makes none at all.
+- TokFeed asks the browser for **persistent storage** so Android can't evict your videos when the
+  phone is low on space. The *On this phone* card shows `kept offline` once that's granted —
+  installing to the home screen is what gets it granted.
 - Feed order is **pasted links first, then files** in the order you added them.
 - Files on their own are a valid feed — leave the link box empty and tap **Extract & Load**.
 - Remove one with the **×** next to it, or all of them via *Settings → Clear cache*.

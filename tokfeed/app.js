@@ -138,6 +138,18 @@
     return Promise.all(jobs);
   }
 
+  /**
+   * Ask the browser to keep our storage. Without this, Android can evict
+   * site data when the phone runs low — which would quietly delete videos
+   * the user added. Granted automatically once the app is installed.
+   */
+  function requestPersistence() {
+    if (!navigator.storage || !navigator.storage.persist) return Promise.resolve(false);
+    return navigator.storage.persisted()
+      .then(function (already) { return already || navigator.storage.persist(); })
+      .catch(function () { return false; });
+  }
+
   function addFiles(fileList) {
     var files = Array.prototype.slice.call(fileList || []).filter(function (f) {
       return /^video\//.test(f.type) || /\.(mp4|m4v|webm|mov|mkv|ogv)$/i.test(f.name);
@@ -148,7 +160,7 @@
     }
 
     var added = 0;
-    var chain = Promise.resolve();
+    var chain = requestPersistence();
 
     files.forEach(function (file) {
       chain = chain.then(function () {
@@ -197,8 +209,16 @@
     if (!locals.length) return;
 
     var total = locals.reduce(function (n, i) { return n + (i.size || 0); }, 0);
-    ui.filesSize.textContent = locals.length + ' file' + (locals.length > 1 ? 's' : '') +
+    var label = locals.length + ' file' + (locals.length > 1 ? 's' : '') +
       (total ? ' · ' + formatSize(total) : '');
+    ui.filesSize.textContent = label;
+
+    // Reassure the user their videos won't be evicted (or warn that they might).
+    if (navigator.storage && navigator.storage.persisted) {
+      navigator.storage.persisted().then(function (safe) {
+        ui.filesSize.textContent = label + (safe ? ' · kept offline' : ' · install the app to keep');
+      }).catch(function () {});
+    }
 
     locals.forEach(function (item) {
       var li = document.createElement('li');
