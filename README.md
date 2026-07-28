@@ -15,6 +15,50 @@ Android Studio.
 
 ➡️ **See [`flowforge/`](./flowforge/) for the module catalog, mapping language, and install steps.**
 
+---
+
+## TokFeed 📱
+
+Paste TikTok (or YouTube / direct video) links — or pick video files off your phone — and watch
+them as a full-screen, swipeable vertical feed, with TikTok-style autoplay, mute toggle and
+scrubbing. Extraction runs **in the browser**, so there's no server, no build step and no `yt-dlp`
+to keep running: host it on GitHub Pages and install it to your home screen **entirely from your
+phone**.
+
+➡️ **See [`tokfeed/`](./tokfeed/) for the app and phone-only setup instructions.**
+
+> For personal use. Don't redistribute other people's videos.
+
+---
+
+## POCKET BRAWL 🥊
+
+A **Super Smash Bros.–style platform fighter for mobile browsers**, rendered in real 3D with
+Three.js (vendored, no CDN). **30 stylised fan-art fighters** — from Mario, Pikachu and Sonic
+to Luffy, Rick & Morty, the Minions and Godzilla — each with their own stats and special
+moves, plus **4 selectable stages** (Sunset Isle, Magma Keep, Neon City, Sky Shrine) with
+distinct layouts and scenery, a **procedural chiptune soundtrack** with a theme per stage,
+percent-damage knockback, stocks, a CPU rival, touch controls, and a Smash-style roster
+select screen. Serve the folder and open it on your phone in landscape.
+
+➡️ **See [`smash/`](./smash/) to play and for controls.**
+
+> Fan-made, non-commercial tribute · procedural primitive models, no official assets.
+
+---
+
+## NEON DRIVE — Leonida 🌴🚗
+
+A **GTA 6-style open-world Three.js game** you can play on your **TV with an Xbox controller**.
+Jack cars and drift around a neon Miami-style beach city, run delivery jobs for cash, and outrun the
+cops. Single self-contained folder — no build step, no internet needed. Just open `index.html`.
+
+➡️ **See [`gta6/`](./gta6/) to play and for full TV / controller setup instructions.**
+
+> Fan-made tribute · not affiliated with Rockstar Games.
+
+---
+
 ## RetroPlay 🎮
 
 A complete, phone-only retro game emulator app (NES / SNES / Game Boy / GBA / Genesis) that can be
