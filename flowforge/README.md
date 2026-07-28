@@ -13,21 +13,33 @@ per-module input and output so you can see exactly what happened.
 
 ---
 
-## Getting it on your phone — no computer needed
+## Getting it on your phone
 
-The APK is built in the cloud by GitHub Actions. You never install Android Studio.
+A built APK is published as a GitHub Release:
 
-1. On your phone, open this repository on **github.com** or in the **GitHub mobile app**.
-2. Go to **Actions → Build FlowForge APK → Run workflow**.
-   (It also runs automatically on every push that touches `flowforge/`.)
-3. Wait ~5 minutes. When it finishes, open **Releases** — the newest one is
-   `FlowForge build <n>` with a `FlowForge-<n>.apk` attached (~39 MB).
-4. Tap the `.apk` to download, then tap the download to install. Android will ask you to allow
-   installs from unknown sources for your browser — allow it once.
-5. Open FlowForge → **Settings** and grant the access your scenarios need.
+**➡️ [flowforge-v3](https://github.com/MattG241/games/releases/tag/flowforge-v3)** — `FlowForge-3.apk`, ~39 MB
+
+1. Open that release on your phone and tap the `.apk` under **Assets**.
+2. Tap the download to install. Android will ask you to allow installs from unknown sources for
+   your browser — allow it once.
+3. Open FlowForge → **Settings** and grant the access your scenarios need.
 
 The APK is signed with the standard Android debug key, so no signing secrets are stored anywhere.
 It is ARM-only (every real Android phone); it will not install on an x86 emulator.
+
+### Building a new APK
+
+There is no CI workflow in this repo, so producing a **new** APK after changing the code needs a
+machine with the Android SDK:
+
+```bash
+cd flowforge
+echo "sdk.dir=$ANDROID_HOME" > local.properties
+gradle testDebugUnitTest assembleRelease
+# app/build/outputs/apk/release/app-release.apk
+```
+
+Transfer that APK to the phone however you like and install it the same way.
 
 ---
 
@@ -250,12 +262,6 @@ flowforge/app/src/main/java/com/flowforge/android/
   ui/          Compose screens — list, editor canvas, config sheets, history, settings
 ```
 
-`app/src/test` holds JVM tests for the expression engine — they run in CI before every APK build.
-
-## Building locally (optional)
-
-```bash
-cd flowforge
-echo "sdk.dir=$ANDROID_HOME" > local.properties
-gradle testDebugUnitTest assembleRelease
-```
+`app/src/test` holds 14 JVM tests for the expression engine — mapping resolution, functions,
+arithmetic, comparisons, filter operators and malformed-input handling. Run them with
+`gradle testDebugUnitTest`; see [Building a new APK](#building-a-new-apk) above.

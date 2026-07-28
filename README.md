@@ -9,9 +9,9 @@ replying to them inline), Wi-Fi, Bluetooth, NFC, camera, microphone, screen capt
 and barcode scanning, contacts, calendar, files, SQLite, UI automation via the accessibility
 service, any HTTP API — plus an optional privileged tier through Shizuku or root.
 
-Built as a native Kotlin/Compose app, but the APK is produced **entirely in the cloud** by GitHub
-Actions — run the workflow from your phone, then install the APK it publishes. No computer, no
-Android Studio.
+A native Kotlin/Compose app. A built APK is published as a release — tap it on your phone to
+install, no Android Studio needed:
+**[flowforge-v3](https://github.com/MattG241/games/releases/tag/flowforge-v3)**.
 
 ➡️ **See [`flowforge/`](./flowforge/) for the module catalog, mapping language, and install steps.**
 
