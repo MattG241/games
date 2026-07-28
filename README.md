@@ -1,5 +1,22 @@
 # games
 
+## FlowForge ⚡
+
+A **Make.com-style visual automation builder for Android** — triggers, chained modules, `{{2.body}}`
+data mapping, routers, iterators, filters, and a run log showing every module's input and output.
+**19 triggers and 94 actions** reach the device for real: SMS, calls, notifications (including
+replying to them inline), Wi-Fi, Bluetooth, NFC, camera, microphone, screen capture, on-device OCR
+and barcode scanning, contacts, calendar, files, SQLite, UI automation via the accessibility
+service, any HTTP API — plus an optional privileged tier through Shizuku or root.
+
+A native Kotlin/Compose app. A built APK is published as a release — tap it on your phone to
+install, no Android Studio needed:
+**[flowforge-v3](https://github.com/MattG241/games/releases/tag/flowforge-v3)**.
+
+➡️ **See [`flowforge/`](./flowforge/) for the module catalog, mapping language, and install steps.**
+
+---
+
 ## TokFeed 📱
 
 Paste TikTok (or YouTube / direct video) links — or pick video files off your phone — and watch
