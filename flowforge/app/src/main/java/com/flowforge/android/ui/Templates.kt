@@ -132,6 +132,76 @@ val SCENARIO_TEMPLATES: List<ScenarioTemplate> = listOf(
         ),
     ),
     ScenarioTemplate(
+        "Auto-reply to a chat message", "💬", "Answer a messaging notification without opening the app",
+        listOf(
+            node(1, "trigger.notification", "contains" to "on my way?"),
+            node(2, "notify.reply", "key" to "{{1.key}}", "text" to "On my way, about 10 minutes."),
+        ),
+        description = "Needs notification access. Works with any app that offers inline reply.",
+    ),
+    ScenarioTemplate(
+        "Read a receipt with OCR", "🔎", "Photograph something and pull the text out of it",
+        listOf(
+            node(1, "trigger.manual"),
+            node(2, "camera.photo", "lens" to "Back", "filename" to "photos/receipt.jpg"),
+            node(3, "vision.ocr", "path" to "{{2.path}}"),
+            node(4, "tool.datastore", "action" to "Set", "key" to "lastReceipt", "value" to "{{3.text}}"),
+            node(5, "notify.send", "title" to "Scanned", "text" to "{{3.text}}"),
+        ),
+    ),
+    ScenarioTemplate(
+        "Log every unlock to a database", "🗄", "A tiny local dataset you can query later",
+        listOf(
+            node(1, "trigger.screen", "state" to "Unlocked"),
+            node(
+                2, "tool.sqlite",
+                "database" to "flowforge/usage.db",
+                "sql" to "CREATE TABLE IF NOT EXISTS unlocks (at INTEGER, battery INTEGER)",
+            ),
+            node(3, "device.info"),
+            node(
+                4, "tool.sqlite",
+                "database" to "flowforge/usage.db",
+                "sql" to "INSERT INTO unlocks (at, battery) VALUES (?, ?)",
+                "args" to "{{1.timestamp}}\n{{3.battery}}",
+            ),
+        ),
+    ),
+    ScenarioTemplate(
+        "Signed webhook call", "🔐", "HMAC the payload before sending it, the way real APIs want",
+        listOf(
+            node(1, "trigger.manual"),
+            node(2, "tool.jsonBuild", "fields" to "event=ping\nat={{now}}"),
+            node(3, "tool.hash", "algorithm" to "HMAC-SHA256", "text" to "{{2.text}}", "key" to "your-secret"),
+            node(
+                4, "http.request",
+                "method" to "POST",
+                "url" to "https://example.com/hook",
+                "headers" to "X-Signature: {{3.value}}",
+                "body" to "{{2.text}}",
+            ),
+        ),
+    ),
+    ScenarioTemplate(
+        "Silence the phone at work", "🤫", "Geofence-ish: Wi-Fi arrives, the phone goes quiet",
+        listOf(
+            node(1, "trigger.wifi", "state" to "Connected", "ssid" to "OfficeWiFi"),
+            node(2, "device.dnd", "mode" to "Priority only"),
+            node(3, "device.volume", "stream" to "Ring", "percent" to "0"),
+            node(4, "calendar.query", "hours" to "9"),
+            node(5, "device.tts", "text" to "You have {{4.count}} meetings today. Next up: {{4.next}}."),
+        ),
+    ),
+    ScenarioTemplate(
+        "Privileged: airplane mode toggle", "📻", "A silent radio switch, via Shizuku or root",
+        listOf(
+            node(1, "trigger.manual"),
+            node(2, "priv.radio", "radio" to "Airplane mode", "state" to "Toggle"),
+            node(3, "notify.send", "title" to "Airplane mode", "text" to "Now {{2.state}} (via {{2.via}})"),
+        ),
+        description = "Needs Shizuku running or a rooted device — set that up in Settings first.",
+    ),
+    ScenarioTemplate(
         "Poll an API and branch", "⑂", "A scheduled call with a router and filters",
         listOf(
             node(1, "trigger.schedule", "mode" to "Every N minutes", "minutes" to "30"),

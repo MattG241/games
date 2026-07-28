@@ -2,4 +2,6 @@
 <resources>
     <string name="app_name">FlowForge</string>
     <string name="tile_label">Run scenario</string>
+    <string name="accessibility_label">FlowForge UI automation</string>
+    <string name="accessibility_description">Lets your scenarios tap, swipe, type, read the screen and press system buttons. FlowForge only acts when a scenario you built tells it to.</string>
 </resources>

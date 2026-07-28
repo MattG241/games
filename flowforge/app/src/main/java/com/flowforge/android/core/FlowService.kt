@@ -25,6 +25,7 @@ import androidx.core.app.NotificationCompat
 import com.flowforge.android.FlowForgeApp
 import com.flowforge.android.R
 import com.flowforge.android.engine.runners.Notifications
+import com.flowforge.android.engine.runners.currentForegroundPackage
 import com.flowforge.android.ui.MainActivity
 import kotlin.math.sqrt
 
@@ -42,6 +43,10 @@ class FlowService : Service() {
 
     private var lastBatteryLevel = -1
     private var lastCallState = TelephonyManager.EXTRA_STATE_IDLE
+    private val folderObservers = mutableListOf<android.os.FileObserver>()
+    private var foregroundPoller: Runnable? = null
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var lastForegroundPackage: String? = null
 
     private val systemReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) = handleSystemEvent(intent)
@@ -54,12 +59,16 @@ class FlowService : Service() {
         registerNetworkCallback()
         startWebhookServer()
         updateShakeListener()
+        updateFolderWatchers()
+        updateForegroundPoller()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_REFRESH) {
             startWebhookServer()
             updateShakeListener()
+            updateFolderWatchers()
+            updateForegroundPoller()
             startForegroundNotification()
         }
         return START_STICKY
@@ -73,6 +82,10 @@ class FlowService : Service() {
             }
         }
         shakeListener?.let { sensorManager?.unregisterListener(it) }
+        folderObservers.forEach { runCatching { it.stopWatching() } }
+        folderObservers.clear()
+        foregroundPoller?.let { handler.removeCallbacks(it) }
+        foregroundPoller = null
         webhookServer?.stop()
         webhookServer = null
         super.onDestroy()
@@ -195,6 +208,104 @@ class FlowService : Service() {
         }
         manager.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_UI)
         shakeListener = listener
+    }
+
+    private fun updateFolderWatchers() {
+        folderObservers.forEach { runCatching { it.stopWatching() } }
+        folderObservers.clear()
+
+        app.scenarios.scenarios.value
+            .filter { it.enabled && it.trigger?.type == "trigger.folder" }
+            .forEach { blueprint ->
+                val trigger = blueprint.trigger ?: return@forEach
+                val raw = trigger.param("path", "flowforge")
+                val folder = if (raw.startsWith("/")) java.io.File(raw)
+                else java.io.File(getExternalFilesDir(null) ?: filesDir, raw)
+                if (!folder.isDirectory && !folder.mkdirs()) return@forEach
+
+                val wanted = trigger.param("events", "Any change")
+                val mask = when (wanted) {
+                    "Created" -> android.os.FileObserver.CREATE or android.os.FileObserver.MOVED_TO
+                    "Modified" -> android.os.FileObserver.CLOSE_WRITE or android.os.FileObserver.MODIFY
+                    "Deleted" -> android.os.FileObserver.DELETE or android.os.FileObserver.MOVED_FROM
+                    else -> android.os.FileObserver.CREATE or android.os.FileObserver.CLOSE_WRITE or
+                        android.os.FileObserver.DELETE or android.os.FileObserver.MOVED_TO or
+                        android.os.FileObserver.MOVED_FROM
+                }
+
+                val observer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    object : android.os.FileObserver(folder, mask) {
+                        override fun onEvent(event: Int, path: String?) =
+                            onFolderEvent(blueprint.id, folder.absolutePath, event, path)
+                    }
+                } else {
+                    @Suppress("DEPRECATION")
+                    object : android.os.FileObserver(folder.absolutePath, mask) {
+                        override fun onEvent(event: Int, path: String?) =
+                            onFolderEvent(blueprint.id, folder.absolutePath, event, path)
+                    }
+                }
+                runCatching { observer.startWatching() }.onSuccess { folderObservers += observer }
+            }
+    }
+
+    private fun onFolderEvent(scenarioId: String, folderPath: String, event: Int, path: String?) {
+        if (path.isNullOrBlank()) return
+        val name = when {
+            event and android.os.FileObserver.CREATE != 0 -> "Created"
+            event and android.os.FileObserver.MOVED_TO != 0 -> "Created"
+            event and android.os.FileObserver.DELETE != 0 -> "Deleted"
+            event and android.os.FileObserver.MOVED_FROM != 0 -> "Deleted"
+            else -> "Modified"
+        }
+        val blueprint = app.scenarios.get(scenarioId) ?: return
+        if (!blueprint.enabled) return
+        app.launchScenario(
+            blueprint,
+            mapOf(
+                "event" to name,
+                "file" to path,
+                "path" to "$folderPath/$path",
+                "timestamp" to System.currentTimeMillis().toDouble(),
+            ),
+            "Folder $name: $path",
+        )
+    }
+
+    private fun updateForegroundPoller() {
+        foregroundPoller?.let { handler.removeCallbacks(it) }
+        foregroundPoller = null
+        val wanted = app.scenarios.scenarios.value
+            .any { it.enabled && it.trigger?.type == "trigger.foregroundApp" }
+        if (!wanted) return
+
+        val poller = object : Runnable {
+            override fun run() {
+                val top = currentForegroundPackage(this@FlowService)?.first
+                if (top != null && top != lastForegroundPackage) {
+                    val previous = lastForegroundPackage.orEmpty()
+                    lastForegroundPackage = top
+                    if (previous.isNotEmpty()) {
+                        val label = runCatching {
+                            packageManager.getApplicationLabel(
+                                packageManager.getApplicationInfo(top, 0)
+                            ).toString()
+                        }.getOrDefault(top)
+                        app.dispatchTrigger(
+                            "trigger.foregroundApp",
+                            mapOf("package" to top, "appName" to label, "previous" to previous),
+                            "Opened $label",
+                        ) { trigger ->
+                            val wantedPackage = trigger.param("package").trim()
+                            wantedPackage.isBlank() || wantedPackage.equals(top, ignoreCase = true)
+                        }
+                    }
+                }
+                handler.postDelayed(this, FOREGROUND_POLL_MS)
+            }
+        }
+        foregroundPoller = poller
+        handler.postDelayed(poller, FOREGROUND_POLL_MS)
     }
 
     // ------------------------------------------------------------------ events
@@ -331,6 +442,7 @@ class FlowService : Service() {
     companion object {
         private const val TAG = "FlowService"
         private const val SERVICE_NOTIFICATION_ID = 4201
+        private const val FOREGROUND_POLL_MS = 3_000L
         const val ACTION_REFRESH = "com.flowforge.android.REFRESH"
 
         fun refresh(context: Context) {

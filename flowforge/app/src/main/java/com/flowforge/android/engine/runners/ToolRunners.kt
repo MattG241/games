@@ -130,7 +130,11 @@ private fun aggregate(node: ModuleNode, env: RunEnv): Map<String, Any?> {
     val bucket = env.aggregates.getOrPut(node.id) { mutableListOf() }
     bucket += env.text(node, "value")
     val separator = node.param("separator", ", ")
-    return mapOf("text" to bucket.joinToString(separator), "count" to bucket.size.toDouble())
+    return mapOf(
+        "text" to bucket.joinToString(separator),
+        "items" to bucket.toList(),
+        "count" to bucket.size.toDouble(),
+    )
 }
 
 private suspend fun runScenario(node: ModuleNode, env: RunEnv): Map<String, Any?> {

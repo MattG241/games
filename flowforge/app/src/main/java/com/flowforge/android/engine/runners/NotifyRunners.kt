@@ -3,15 +3,21 @@ package com.flowforge.android.engine.runners
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.os.Build
+import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.telephony.SmsManager
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
+import androidx.core.app.RemoteInput
 import com.flowforge.android.R
 import com.flowforge.android.engine.RunEnv
 import com.flowforge.android.model.ModuleNode
+import com.flowforge.android.triggers.FlowNotificationListener
+import com.flowforge.android.triggers.NotificationActionReceiver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -56,6 +62,9 @@ object Notifications {
 
 suspend fun runNotifyModule(type: String, node: ModuleNode, env: RunEnv): Map<String, Any?>? = when (type) {
     "notify.send" -> sendNotification(node, env)
+    "notify.dismiss" -> dismissNotification(node, env)
+    "notify.reply" -> replyToNotification(node, env)
+    "notify.snooze" -> snoozeNotification(node, env)
     "sms.send" -> sendSms(node, env)
     "device.tts" -> speak(node, env)
     "device.toast" -> toast(node, env)
@@ -72,8 +81,139 @@ private fun sendNotification(node: ModuleNode, env: RunEnv): Map<String, Any?> {
     }
     val tag = env.text(node, "tag")
     val id = if (tag.isNotBlank()) tag.hashCode() else (System.currentTimeMillis() % Int.MAX_VALUE).toInt()
-    Notifications.post(env.app, id, title, body, channel, env.bool(node, "ongoing", false))
-    return mapOf("id" to id.toDouble(), "title" to title)
+
+    Notifications.ensureChannels(env.app)
+    val builder = NotificationCompat.Builder(env.app, channel)
+        .setSmallIcon(R.drawable.ic_tile)
+        .setContentTitle(title)
+        .setContentText(body)
+        .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+        .setAutoCancel(true)
+        .setOngoing(env.bool(node, "ongoing", false))
+        .setPriority(
+            if (channel == Notifications.CHANNEL_HIGH) NotificationCompat.PRIORITY_HIGH
+            else NotificationCompat.PRIORITY_DEFAULT
+        )
+
+    // Each "Label=Scenario" line becomes a button that fires that scenario when tapped.
+    val buttons = env.text(node, "actions").lineSequence()
+        .map { it.trim() }
+        .filter { it.contains('=') }
+        .take(3)
+        .toList()
+
+    buttons.forEachIndexed { index, line ->
+        val label = line.substringBefore('=').trim()
+        val scenario = line.substringAfter('=').trim()
+        if (label.isEmpty() || scenario.isEmpty()) return@forEachIndexed
+        val intent = Intent(env.app, NotificationActionReceiver::class.java)
+            .setAction("${NotificationActionReceiver.ACTION_RUN}.$id.$index")
+            .putExtra(NotificationActionReceiver.EXTRA_SCENARIO, scenario)
+            .putExtra(NotificationActionReceiver.EXTRA_LABEL, label)
+            .putExtra(NotificationActionReceiver.EXTRA_NOTIFICATION_ID, id)
+        val pending = PendingIntent.getBroadcast(
+            env.app,
+            (id.toString() + index).hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        builder.addAction(R.drawable.ic_tile, label, pending)
+    }
+
+    runCatching {
+        env.app.getSystemService(NotificationManager::class.java)?.notify(id, builder.build())
+    }.onFailure { error("Could not post the notification — check the notifications permission") }
+
+    return mapOf("id" to id.toDouble(), "title" to title, "buttons" to buttons.size.toDouble())
+}
+
+private fun dismissNotification(node: ModuleNode, env: RunEnv): Map<String, Any?> {
+    val scope = env.choice(node, "scope", "By key")
+
+    if (scope == "My own by tag") {
+        val tag = env.text(node, "tag")
+        val manager = env.app.getSystemService(NotificationManager::class.java)
+        if (tag.isBlank()) manager?.cancelAll() else manager?.cancel(tag.hashCode())
+        return mapOf("dismissed" to true, "count" to 1.0)
+    }
+
+    val listener = FlowNotificationListener.instance
+        ?: error("Dismissing other apps' notifications needs notification access — grant it in Settings inside FlowForge")
+
+    return when (scope) {
+        "All" -> {
+            val count = listener.activeNotifications?.size ?: 0
+            listener.cancelAllNotifications()
+            mapOf("dismissed" to true, "count" to count.toDouble())
+        }
+        "All from an app" -> {
+            val pkg = env.text(node, "package").trim()
+            require(pkg.isNotBlank()) { "Pick an app" }
+            val keys = listener.activeNotifications
+                ?.filter { it.packageName == pkg }
+                ?.map { it.key }
+                .orEmpty()
+            keys.forEach { runCatching { listener.cancelNotification(it) } }
+            mapOf("dismissed" to keys.isNotEmpty(), "count" to keys.size.toDouble())
+        }
+        else -> {
+            val key = env.text(node, "key").trim()
+            require(key.isNotBlank()) { "Map in a notification key, e.g. {{1.key}}" }
+            listener.cancelNotification(key)
+            mapOf("dismissed" to true, "count" to 1.0)
+        }
+    }
+}
+
+private fun replyToNotification(node: ModuleNode, env: RunEnv): Map<String, Any?> {
+    val listener = FlowNotificationListener.instance
+        ?: error("Inline replies need notification access — grant it in Settings inside FlowForge")
+    val key = env.text(node, "key").trim()
+    require(key.isNotBlank()) { "Map in a notification key, e.g. {{1.key}}" }
+    val text = env.text(node, "text")
+    require(text.isNotBlank()) { "Enter the reply text" }
+
+    val sbn = listener.activeNotifications?.firstOrNull { it.key == key }
+        ?: error("That notification is no longer showing")
+
+    val action = sbn.notification.actions?.firstOrNull { candidate ->
+        candidate.remoteInputs?.any { it.allowFreeFormInput } == true
+    } ?: error("That notification does not offer an inline reply")
+
+    val inputs = action.remoteInputs ?: error("That notification does not offer an inline reply")
+    val results = Bundle()
+    inputs.forEach { results.putCharSequence(it.resultKey, text) }
+
+    val intent = Intent().addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    val compatInputs = inputs.map { native ->
+        RemoteInput.Builder(native.resultKey)
+            .setLabel(native.label)
+            .setAllowFreeFormInput(native.allowFreeFormInput)
+            .build()
+    }.toTypedArray()
+    RemoteInput.addResultsToIntent(compatInputs, intent, results)
+
+    action.actionIntent.send(env.app, 0, intent)
+    return mapOf("replied" to true, "key" to key, "text" to text)
+}
+
+private fun snoozeNotification(node: ModuleNode, env: RunEnv): Map<String, Any?> {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+        error("Snoozing needs Android 8 or newer")
+    }
+    val listener = FlowNotificationListener.instance
+        ?: error("Snoozing needs notification access — grant it in Settings inside FlowForge")
+    val key = env.text(node, "key").trim()
+    require(key.isNotBlank()) { "Map in a notification key, e.g. {{1.key}}" }
+    val minutes = env.number(node, "minutes", 10.0).coerceIn(1.0, 24 * 60.0)
+    val duration = (minutes * 60_000).toLong()
+
+    listener.snoozeNotification(key, duration)
+    return mapOf(
+        "snoozed" to true,
+        "untilTimestamp" to (System.currentTimeMillis() + duration).toDouble(),
+        "minutes" to minutes,
+    )
 }
 
 private fun sendSms(node: ModuleNode, env: RunEnv): Map<String, Any?> {

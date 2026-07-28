@@ -5,10 +5,18 @@ import android.util.Log
 import com.flowforge.android.data.RunRecord
 import com.flowforge.android.data.RunStore
 import com.flowforge.android.data.StepLog
+import com.flowforge.android.engine.runners.runCommsModule
+import com.flowforge.android.engine.runners.runConnectivityModule
+import com.flowforge.android.engine.runners.runDataModule
 import com.flowforge.android.engine.runners.runDeviceModule
+import com.flowforge.android.engine.runners.runFileModule
+import com.flowforge.android.engine.runners.runMediaModule
 import com.flowforge.android.engine.runners.runNetModule
 import com.flowforge.android.engine.runners.runNotifyModule
+import com.flowforge.android.engine.runners.runPrivilegedModule
 import com.flowforge.android.engine.runners.runToolModule
+import com.flowforge.android.engine.runners.runUiModule
+import com.flowforge.android.engine.runners.runVisionModule
 import com.flowforge.android.model.Blueprint
 import com.flowforge.android.model.FilterRule
 import com.flowforge.android.model.ModuleCatalog
@@ -237,7 +245,15 @@ class Engine(private val app: Context, private val runs: RunStore) {
     private suspend fun runModule(node: ModuleNode, type: String, env: RunEnv): Map<String, Any?> =
         runNetModule(type, node, env)
             ?: runNotifyModule(type, node, env)
+            ?: runCommsModule(type, node, env)
             ?: runDeviceModule(type, node, env)
+            ?: runMediaModule(type, node, env)
+            ?: runConnectivityModule(type, node, env)
+            ?: runFileModule(type, node, env)
+            ?: runVisionModule(type, node, env)
+            ?: runUiModule(type, node, env)
+            ?: runPrivilegedModule(type, node, env)
+            ?: runDataModule(type, node, env)
             ?: runToolModule(type, node, env)
             ?: mapOf("skipped" to true, "reason" to "Unknown module type $type")
 

@@ -2,6 +2,7 @@ package com.flowforge.android.ui
 
 import android.Manifest
 import android.app.AlarmManager
+import android.app.AppOpsManager
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
@@ -53,7 +54,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.flowforge.android.FlowForgeApp
+import com.flowforge.android.core.ShellRunner
 import com.flowforge.android.core.WebhookServer
+import com.flowforge.android.triggers.FlowAccessibilityService
 import com.flowforge.android.triggers.FlowNotificationListener
 
 private val RUNTIME_PERMISSIONS: List<String> = buildList {
@@ -61,10 +64,16 @@ private val RUNTIME_PERMISSIONS: List<String> = buildList {
     add(Manifest.permission.READ_SMS)
     add(Manifest.permission.SEND_SMS)
     add(Manifest.permission.READ_PHONE_STATE)
+    add(Manifest.permission.CALL_PHONE)
+    add(Manifest.permission.ANSWER_PHONE_CALLS)
     add(Manifest.permission.READ_CONTACTS)
+    add(Manifest.permission.WRITE_CONTACTS)
+    add(Manifest.permission.READ_CALENDAR)
+    add(Manifest.permission.WRITE_CALENDAR)
     add(Manifest.permission.ACCESS_COARSE_LOCATION)
     add(Manifest.permission.ACCESS_FINE_LOCATION)
     add(Manifest.permission.CAMERA)
+    add(Manifest.permission.RECORD_AUDIO)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         add(Manifest.permission.POST_NOTIFICATIONS)
     }
@@ -158,6 +167,18 @@ fun SettingsScreen(viewModel: AppViewModel, navController: NavController) {
                     Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
                         context.getSystemService(AlarmManager::class.java)?.canScheduleExactAlarms() == true
                 }
+                val accessibility = remember(refreshToken) { FlowAccessibilityService.isEnabled(context) }
+                val usageAccess = remember(refreshToken) {
+                    val ops = context.getSystemService(AppOpsManager::class.java)
+                    val mode = runCatching {
+                        ops?.unsafeCheckOpNoThrow(
+                            AppOpsManager.OPSTR_GET_USAGE_STATS,
+                            android.os.Process.myUid(),
+                            context.packageName,
+                        )
+                    }.getOrNull()
+                    mode == AppOpsManager.MODE_ALLOWED
+                }
 
                 SettingsCard("Access") {
                     Text(
@@ -169,7 +190,7 @@ fun SettingsScreen(viewModel: AppViewModel, navController: NavController) {
                     OutlinedButton(
                         onClick = { permissionLauncher.launch(RUNTIME_PERMISSIONS.toTypedArray()) },
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Grant SMS, phone, location, camera & notifications") }
+                    ) { Text("Grant SMS, phone, contacts, calendar, location, camera, mic") }
 
                     AccessRow(
                         title = "Notification access",
@@ -189,6 +210,18 @@ fun SettingsScreen(viewModel: AppViewModel, navController: NavController) {
                     }
 
                     AccessRow(
+                        title = "Accessibility service",
+                        granted = accessibility,
+                        hint = "Needed by the UI automation modules and Lock the screen",
+                    ) { openSettings(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+
+                    AccessRow(
+                        title = "Usage access",
+                        granted = usageAccess,
+                        hint = "Needed by Foreground app and the App opened trigger",
+                    ) { openSettings(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }
+
+                    AccessRow(
                         title = "Do Not Disturb access",
                         granted = dndAccess,
                         hint = "Needed for silent mode and DND modules",
@@ -206,6 +239,49 @@ fun SettingsScreen(viewModel: AppViewModel, navController: NavController) {
                             granted = exactAlarms,
                             hint = "Keeps scheduled triggers on time",
                         ) { openSettings(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)) }
+                    }
+                }
+            }
+
+            item {
+                var shizukuState by remember { mutableStateOf(ShellRunner.shizukuAvailable()) }
+                var rootState by remember { mutableStateOf<Boolean?>(null) }
+
+                SettingsCard("Privileged tier (optional)") {
+                    Text(
+                        "The Privileged modules — silent Wi-Fi and mobile data toggles, force-stopping " +
+                            "apps, granting permissions, hardware keys, free settings writes — need a " +
+                            "channel Android does not give normal apps. Shizuku provides one without " +
+                            "root; a rooted device works too. Everything else in FlowForge works without this.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    AccessRow(
+                        title = "Shizuku",
+                        granted = shizukuState,
+                        hint = if (ShellRunner.shizukuBound()) "Shizuku is running — tap to grant FlowForge access"
+                        else "Not running. Install Shizuku and start it, then tap here.",
+                    ) {
+                        ShellRunner.requestShizukuPermission()
+                        shizukuState = ShellRunner.shizukuAvailable()
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Root", fontWeight = FontWeight.Medium)
+                            Text(
+                                when (rootState) {
+                                    true -> "Root access granted"
+                                    false -> "No root on this device"
+                                    else -> "Not checked — tap to test (a root prompt may appear)"
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        OutlinedButton(onClick = { rootState = ShellRunner.rootAvailable() }) {
+                            Text("Check")
+                        }
                     }
                 }
             }

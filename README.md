@@ -4,8 +4,10 @@
 
 A **Make.com-style visual automation builder for Android** — triggers, chained modules, `{{2.body}}`
 data mapping, routers, iterators, filters, and a run log showing every module's input and output.
-It talks to the device for real: SMS, notifications, calls, Wi-Fi, Bluetooth, battery, location,
-torch, volume, media keys, files, arbitrary intents, and any HTTP API.
+**19 triggers and 94 actions** reach the device for real: SMS, calls, notifications (including
+replying to them inline), Wi-Fi, Bluetooth, NFC, camera, microphone, screen capture, on-device OCR
+and barcode scanning, contacts, calendar, files, SQLite, UI automation via the accessibility
+service, any HTTP API — plus an optional privileged tier through Shizuku or root.
 
 Built as a native Kotlin/Compose app, but the APK is produced **entirely in the cloud** by GitHub
 Actions — run the workflow from your phone, then install the APK it publishes. No computer, no

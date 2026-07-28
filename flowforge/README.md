@@ -1,12 +1,15 @@
 # FlowForge ⚡
 
 A Make.com-style visual automation builder that runs **natively on Android**, with real access to
-the device: SMS, notifications, calls, Wi-Fi, Bluetooth, battery, location, torch, volume, media
-keys, files, other apps' intents, and any HTTP API.
+the device: SMS, calls, notifications (including replying to them), Wi-Fi, Bluetooth, NFC, camera,
+microphone, screen capture, OCR, contacts, calendar, files, a local SQLite database, UI automation
+through the accessibility service, and — if you want it — a privileged tier via Shizuku or root.
 
 You build a **scenario** the way you would in Make: pick a trigger, chain modules after it, and map
 one module's output into the next with `{{2.json.items[0].name}}` tokens. Every run is logged with
 per-module input and output so you can see exactly what happened.
+
+**19 triggers, 94 actions.**
 
 ---
 
@@ -17,13 +20,14 @@ The APK is built in the cloud by GitHub Actions. You never install Android Studi
 1. On your phone, open this repository on **github.com** or in the **GitHub mobile app**.
 2. Go to **Actions → Build FlowForge APK → Run workflow**.
    (It also runs automatically on every push that touches `flowforge/`.)
-3. Wait ~4 minutes. When it finishes, open **Releases** — the newest one is
-   `FlowForge build <n>` with a `FlowForge-<n>.apk` attached.
+3. Wait ~5 minutes. When it finishes, open **Releases** — the newest one is
+   `FlowForge build <n>` with a `FlowForge-<n>.apk` attached (~39 MB).
 4. Tap the `.apk` to download, then tap the download to install. Android will ask you to allow
    installs from unknown sources for your browser — allow it once.
 5. Open FlowForge → **Settings** and grant the access your scenarios need.
 
 The APK is signed with the standard Android debug key, so no signing secrets are stored anywhere.
+It is ARM-only (every real Android phone); it will not install on an x86 emulator.
 
 ---
 
@@ -45,39 +49,89 @@ The APK is signed with the standard Android debug key, so no signing secrets are
 * **Filters stop the run**; router branches run independently of each other.
 * **Iterators fan out** — everything after an iterator runs once per array item.
 
-### Triggers
+---
 
-| | |
+## Triggers (19)
+
+| Trigger | Fires on |
 |---|---|
-| Run manually | Tap Run, the quick-settings tile, or a `flowforge://run/<name>` link |
+| Run manually | Tap Run, the quick-settings tile, a `flowforge://run/<name>` link, or a broadcast |
 | Schedule | Every N minutes, or daily at a time with an optional day filter |
 | Webhook | A local HTTP listener — anything on your network can start the scenario |
 | SMS received | Optionally filtered by sender or body text |
-| Notification posted | Any app's notifications (needs notification access) |
+| Notification posted | Any app's notifications, with the key needed to reply or dismiss |
+| Notification dismissed | Same, on removal |
 | Phone call state | Ringing / answered / ended |
-| Power, Battery level, Wi-Fi, Bluetooth, Headset, Airplane mode, Screen & unlock | |
-| Shake device | Accelerometer, with adjustable sensitivity |
-| Device booted | |
+| Power connected | Plugged in or unplugged |
+| Battery level | Crossing a threshold, up or down |
+| Wi-Fi state | Connected / disconnected, optionally to a named SSID |
+| Bluetooth device | A named device connecting or disconnecting |
+| Screen / unlock | Screen on, screen off, unlocked |
+| Headset plugged | In or out |
+| Airplane mode | On or off |
+| Shake device | Accelerometer, adjustable sensitivity |
+| Folder changed | A file created, modified or deleted in a watched folder |
+| App opened | The foreground app changes (needs usage access) |
+| NFC tag scanned | A tag tapped while FlowForge is open |
+| Device booted | After a restart |
 
-### Actions
+## Actions (94)
 
-**HTTP** — request (all verbs, headers, bearer/basic auth, JSON parsing), download file, webhook response.
+**Network** — HTTP request (all verbs, headers, bearer/basic auth, JSON parsing), download file,
+multipart file upload, ping / TCP port check, WebSocket send-and-await, MQTT publish, webhook response.
 
-**Notify** — post a notification, send an SMS, speak text aloud, show a toast.
+**Communication** — send SMS, place a call, answer or end the current call, compose an email
+(with attachment), open the share sheet.
 
-**Device** — open an app, send *any* intent (activity / broadcast / service, with extras), open a
-URL, read & write the clipboard, vibrate, set volume, ringer mode, Do Not Disturb, brightness,
-torch, media transport keys, get location, read full device state, open a settings panel.
+**Notifications** — post a notification with up to three buttons that each run another scenario;
+dismiss by key, by app, or all; **reply inline** to another app's notification (answer a chat
+message without opening it); snooze a notification; speak text aloud; show a toast.
 
-**Files** — read and write text files.
+**Apps & intents** — launch an app, go home, fire an arbitrary intent (activity / broadcast /
+service, with typed extras), open a URL or deep link, open any of 16 settings screens, set an alarm
+or timer through the clock app.
 
-**Flow control** — filter, router with per-route conditions, iterator, repeater, sleep, stop,
-running aggregate.
+**Device controls** — torch, screen brightness, screen timeout, volume per stream, ringer mode,
+Do Not Disturb, vibrate patterns, wakelock (keep the screen awake), lock the screen, set the
+wallpaper, set and read the clipboard, a full device-state bundle, the current foreground app, and
+a one-shot sensor snapshot (light, proximity, accelerometer, pressure, humidity, temperature).
 
-**Tools** — set variable, compose/transform expression, parse JSON, regex match, key/value data
-store, log a message, run another scenario.
+**Audio & media** — media transport keys, now-playing track metadata, play a file / URL / system
+tone / beep, record audio from the microphone.
 
-### The mapping language
+**Files** — read, write, append, copy, move, delete, create folder, list a folder (with glob and
+recursion), zip and unzip, and **SQLite queries** against a local database file.
+
+**Camera & screen** — take a photo silently with CameraX, take a screenshot via MediaProjection,
+**OCR text from an image** and **scan barcodes / QR codes** — both on-device with ML Kit, nothing
+leaves the phone.
+
+**Location** — get a fix, start/stop background tracking to a JSONL log, open navigation.
+
+**Connectivity** — suggest a Wi-Fi network to join, toggle Bluetooth, connect/disconnect a paired
+Bluetooth audio device, write an NFC tag.
+
+**Contacts & calendar** — look up a contact, create or update one, create a calendar event with a
+reminder, query upcoming events.
+
+**UI automation** (accessibility service) — tap by text / view id / content description /
+coordinates, swipe and custom gestures, type into a field, scrape all visible screen text, and press
+Back / Home / Recents / notification shade / quick settings / power dialog / lock screen.
+
+**Privileged** (Shizuku or root) — run a shell command, toggle Wi-Fi / mobile data / airplane mode /
+Bluetooth silently, force-stop or clear or enable/disable another app, grant and revoke its
+permissions, send hardware key events, and read or write any system setting.
+
+**Flow control** — filter, router with per-route conditions, iterator, repeater, sleep, stop, aggregate.
+
+**Data & logic** — set variable, compose/transform, parse JSON, build JSON, text tools (replace,
+split, join, trim, case, substring, template, pad, reverse), regex match, math, date/time
+(format, parse, add, difference), hash / HMAC / Base64 / URL encoding, random values, a persistent
+key/value data store, log a message, and run another scenario.
+
+---
+
+## The mapping language
 
 Anywhere you see `{ }` next to a field you can insert a token.
 
@@ -130,31 +184,46 @@ The payload arrives as the trigger bundle, so `{{1.key}}` works.
 
 Nothing is requested until you ask for it. Settings has one screen with everything:
 
-* Runtime permissions — SMS, phone, contacts, location, camera (torch), notifications, Bluetooth.
-* **Notification access** — for the Notification posted trigger.
-* **Modify system settings** — for screen brightness.
-* **Do Not Disturb access** — for silent/DND modules.
+* **Runtime permissions** — SMS, phone, calls, contacts, calendar, location, camera, microphone,
+  notifications, Bluetooth.
+* **Notification access** — the Notification triggers, and dismissing / replying / snoozing.
+* **Accessibility service** — every UI automation module, and Lock the screen.
+* **Usage access** — Foreground app and the App opened trigger.
+* **Modify system settings** — screen brightness and screen timeout.
+* **Do Not Disturb access** — silent mode and the DND module.
 * **Ignore battery optimisation** — so Android stops pausing scheduled scenarios.
 * **Exact alarms** — so schedules fire on time.
+* **Screen capture** — Android asks for consent each time MediaProjection starts.
 
-A quiet ongoing notification keeps the engine's listeners alive; you can turn it off in Settings,
-but then only schedules, webhooks and manual runs will work reliably.
+### The privileged tier
+
+The **Privileged** modules need a channel Android does not give ordinary apps. Two ways to get one:
+
+* **Shizuku** — install the Shizuku app, start it (via wireless debugging or ADB once), then grant
+  FlowForge access from FlowForge's Settings. No root needed. This gives ADB-level rights.
+* **Root** — if the phone is rooted, FlowForge will use `su` directly.
+
+Every privileged module reports which channel actually ran it in its `via` output. Without either,
+those modules fail with a clear message; nothing else in the app is affected.
 
 ### Where Android says no
 
-Some things are simply not available to a normal app, and FlowForge is honest about them rather
-than failing silently:
+Some things are genuinely not available, and FlowForge says so rather than failing silently:
 
-* **Wi-Fi and Bluetooth cannot be toggled silently** on Android 10+. The *Open settings panel*
-  module opens the one-tap panel instead.
+* **Wi-Fi and Bluetooth cannot be toggled silently** by a normal app on Android 10+/13+. The
+  *Open a settings screen* module opens the one-tap panel; the privileged *Toggle a radio* module
+  does it silently if you have Shizuku or root.
 * **Reading the clipboard in the background** returns empty on Android 10+ — only the focused app
   can read it.
 * **Incoming call numbers** are often blank without being the default dialer.
-* Scenarios that need the screen (opening an app, sending an activity intent) will be queued by
-  the system if the phone is locked.
+* **Screen capture asks for consent** on every session from Android 14 — that is a platform rule.
+* **Connecting to a named Wi-Fi network** uses the suggestion API, so Android decides when to
+  actually join and may prompt once.
+* Scenarios that need the screen (opening an app, sending an activity intent, UI automation) will be
+  queued by the system if the phone is locked.
 
-For anything deeper, the *Send intent* module is the escape hatch — it will drive Tasker, Termux,
-Home Assistant, or any app that exposes an intent.
+For anything deeper, the *Fire an intent* module is the escape hatch — it will drive Tasker,
+Termux, Home Assistant, or any app that exposes an intent.
 
 ---
 
@@ -170,11 +239,14 @@ move a scenario between phones or share one.
 
 ```
 flowforge/app/src/main/java/com/flowforge/android/
-  model/       Blueprint, ModuleNode, and the catalog of every trigger and action
+  model/       Blueprint, ModuleNode, and the catalog split by group
   engine/      Expression (the {{ }} language), Values, Engine (the executor)
-    runners/   Net, Notify, Device and Tool module implementations
-  core/        FlowService (live triggers), Scheduler (alarms), WebhookServer
-  triggers/    Broadcast receivers, notification listener, quick-settings tile
+    runners/   Net, Comms, Notify, Device, Media, Connectivity, File, Vision,
+               UI, Privileged, Data and Tool module implementations
+  core/        FlowService (live triggers), Scheduler, WebhookServer,
+               ScreenCapture (MediaProjection), ShellRunner (Shizuku / root)
+  triggers/    Receivers, notification listener, accessibility service,
+               NFC activity, quick-settings tile
   ui/          Compose screens — list, editor canvas, config sheets, history, settings
 ```
 
